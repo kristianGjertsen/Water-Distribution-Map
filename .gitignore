@@ -41,6 +41,13 @@ Desktop.ini
 #Venv
 .venv*
 
-#Backups
-.backup*
-./backup*
+# Backups and database dumps
+backup*/
+.backup*/
+*.dump
+*.backup
+*.bak
+
+# Local import tools and source archives
+/import_water_network.py
+/vannnett_geojson_eksempel.zip
