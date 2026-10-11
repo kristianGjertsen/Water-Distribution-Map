@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.3"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16"
+  }
+}

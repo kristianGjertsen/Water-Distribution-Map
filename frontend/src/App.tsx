@@ -1,118 +1,45 @@
-import { useEffect, useRef } from 'react'
-import { LngLatBounds, Map, NavigationControl, ScaleControl, setWorkerUrl } from 'maplibre-gl'
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import type { FeatureCollection, LineString, Point } from 'geojson'
-import 'maplibre-gl/dist/maplibre-gl.css'
-
-setWorkerUrl(workerUrl)
-
-const files = import.meta.glob('./assets/map/*.geojson', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-})
-
-const layers = Object.entries(files).map(([path, contents]) => ({
-  id: path.split('/').pop()!.replace('.geojson', ''),
-  data: JSON.parse(contents as string) as FeatureCollection<LineString | Point>,
-}))
-
-const bounds = new LngLatBounds()
-for (const { data } of layers) {
-  for (const { geometry } of data.features) {
-    const positions = geometry.type === 'Point'
-      ? [geometry.coordinates]
-      : geometry.coordinates
-    for (const [lng, lat] of positions) bounds.extend([lng, lat])
-  }
-}
+import { useState } from 'react'
+import AuthForm from '@/components/AuthForm'
+import WaterMap from '@/components/WaterMap'
+import { useSession } from '@/hooks/useSession'
+import { authErrorMessage, signOut } from '@/services/authService'
 
 function App() {
-  const container = useRef<HTMLDivElement>(null)
+  const { session, loading } = useSession()
+  const [signingOut, setSigningOut] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!container.current) return
+  async function handleSignOut() {
+    setSigningOut(true)
+    setError(null)
+    try {
+      await signOut()
+    } catch (error) {
+      setError(authErrorMessage(error))
+    } finally {
+      setSigningOut(false)
+    }
+  }
 
-    const map = new Map({
-      container: container.current,
-      bounds,
-      pitch: 60,
-      maxPitch: 80,
-      fitBoundsOptions: { padding: 48, maxZoom: 17, pitch: 60 },
-      style: {
-        version: 8,
-        sources: {
-          osm: {
-            type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            maxzoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          },
-          terrain: {
-            type: 'raster-dem',
-            url: 'https://tiles.mapterhorn.com/tilejson.json',
-            encoding: 'terrarium',
-            tileSize: 512,
-          },
-          hillshade: {
-            type: 'raster-dem',
-            url: 'https://tiles.mapterhorn.com/tilejson.json',
-            encoding: 'terrarium',
-            tileSize: 512,
-          },
-        },
-        layers: [
-          { id: 'background-map', type: 'raster', source: 'osm' },
-          {
-            id: 'terrain-shading',
-            type: 'hillshade',
-            source: 'hillshade',
-            paint: { 'hillshade-exaggeration': 0.3 },
-          },
-        ],
-        terrain: { source: 'terrain', exaggeration: 1 },
-      },
-    })
+  if (loading) {
+    return <p role="status" className="flex min-h-dvh items-center justify-center text-slate-600">Laster …</p>
+  }
+  if (!session) return <AuthForm />
 
-    map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
-    map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left')
-
-    map.on('load', () => {
-      for (const { id, data } of layers) {
-        map.addSource(id, { type: 'geojson', data })
-        map.addLayer({
-          id: `${id}-lines`,
-          type: 'line',
-          source: id,
-          filter: ['==', ['geometry-type'], 'LineString'],
-          paint: { 'line-color': '#0284c7', 'line-width': 3 },
-        })
-      }
-
-      // Draw points last so they remain visible above every pipeline layer.
-      for (const { id } of layers) {
-        map.addLayer({
-          id: `${id}-points`,
-          type: 'circle',
-          source: id,
-          filter: ['==', ['geometry-type'], 'Point'],
-          paint: {
-            'circle-pitch-alignment': 'map',
-            'circle-pitch-scale': 'viewport',
-            'circle-radius': 4,
-            'circle-color': '#f97316',
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 1,
-          },
-        })
-      }
-    })
-
-    return () => map.remove()
-  }, [])
-
-  return <div ref={container} className="h-dvh w-full" aria-label="Kart over vannledningsnettet" />
+  return (
+    <div className="relative">
+      <WaterMap key={session.user.id} />
+      <div className="absolute bottom-12 left-4 max-w-[calc(100%-5rem)] rounded-lg bg-white p-3 text-sm shadow">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="break-all text-slate-700">{session.user.email}</span>
+          <button type="button" disabled={signingOut} onClick={handleSignOut} className="font-medium text-sky-700 underline disabled:opacity-50">
+            {signingOut ? 'Logger ut …' : 'Logg ut'}
+          </button>
+        </div>
+        {error && <p role="alert" className="mt-2 text-red-700">{error}</p>}
+      </div>
+    </div>
+  )
 }
 
 export default App

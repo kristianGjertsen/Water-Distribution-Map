@@ -36,3 +36,10 @@ Desktop.ini
 *.sln
 *.sw?
 *~
+
+
+#Venv
+.venv*
+
+#Backups
+.backup*
