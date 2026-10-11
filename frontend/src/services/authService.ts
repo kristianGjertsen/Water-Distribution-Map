@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase'
 
+export async function getMapAccess(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('map_access').select('user_id').eq('user_id', userId).maybeSingle()
+  if (error) throw error
+  return data !== null
+}
+
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error

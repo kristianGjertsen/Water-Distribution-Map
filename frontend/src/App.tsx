@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AuthForm from '@/components/AuthForm'
 import WaterMap from '@/components/WaterMap'
+import UserPermission from '@/components/UserPermission'
 import { useSession } from '@/hooks/useSession'
 import { authErrorMessage, signOut } from '@/services/authService'
 
@@ -32,6 +33,7 @@ function App() {
       <div className="absolute bottom-12 left-4 max-w-[calc(100%-5rem)] rounded-lg bg-white p-3 text-sm shadow">
         <div className="flex flex-wrap items-center gap-3">
           <span className="break-all text-slate-700">{session.user.email}</span>
+          <UserPermission key={session.user.id} userId={session.user.id} />
           <button type="button" disabled={signingOut} onClick={handleSignOut} className="font-medium text-sky-700 underline disabled:opacity-50">
             {signingOut ? 'Logger ut …' : 'Logg ut'}
           </button>
