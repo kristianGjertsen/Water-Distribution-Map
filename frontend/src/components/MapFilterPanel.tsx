@@ -21,7 +21,6 @@ export default function MapFilterPanel({ filters, onChange, pipes, points, total
       <summary className="cursor-pointer font-semibold text-slate-900">Lag og filtre</summary>
       <div className="mt-3 space-y-3">
         {([
-          ['cad', 'Synlig i CAD'],
           ['visible', 'Synlig (is_visible)'],
         ] as const).map(([key, label]) => (
           <label key={key} className="flex items-center justify-between gap-2">
@@ -52,14 +51,13 @@ export default function MapFilterPanel({ filters, onChange, pipes, points, total
           Vis punkter
         </label>
         <button type="button" onClick={() => onChange(defaultFilters)} className="text-sky-700 underline">Nullstill filtre</button>
-        <p className="text-xs text-slate-500">CAD-synlighet angir ikke om ledningen er i drift.</p>
         <p role="status" className="font-medium">{pipes ? `${count} av ${total} objekter` : 'Laster objekter …'}</p>
         <div className="max-h-52 overflow-y-auto border-t border-slate-200">
           {pipes && count === 0 && <p className="py-3 text-slate-600">Ingen objekter matcher filtrene.</p>}
           {([['pipes', pipes], ['points', points]] as const).flatMap(([kind, collection]) => collection?.features.map((feature, index) => (
             <button key={`${kind}-${feature.id ?? index}`} type="button" onClick={() => onSelect(feature, kind)} className="block w-full border-b border-slate-100 py-2 text-left hover:bg-sky-50 focus-visible:bg-sky-50">
               <span className="block font-medium">{kind === 'pipes' ? pipeCategories[pipeCategory(feature)].label : feature.properties?.point_type ?? 'Punkt'} · #{feature.id ?? feature.properties?.id ?? index + 1}</span>
-              <span className="block text-xs text-slate-600">CAD: {booleanLabel(feature.properties?.cad_visible)} · Synlig: {booleanLabel(feature.properties?.is_visible)}</span>
+              <span className="block text-xs text-slate-600">Synlig: {booleanLabel(feature.properties?.is_visible)}</span>
             </button>
           )) ?? [])}
         </div>

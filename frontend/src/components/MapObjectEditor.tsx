@@ -13,7 +13,6 @@ type Draft = {
   type: string
   category: string
   status: string
-  cad: string
   visible: boolean
   properties: string
 }
@@ -21,7 +20,6 @@ const makeDraft = (record: WaterObject): Draft => ({
   type: record.pipe_type ?? record.point_type ?? '',
   category: record.pipe_category ?? '',
   status: record.status ?? '',
-  cad: record.cad_visible === null ? 'unknown' : String(record.cad_visible),
   visible: record.is_visible,
   properties: JSON.stringify(record.properties, null, 2),
 })
@@ -73,7 +71,6 @@ export default function MapObjectEditor({ selection, onSaved, onEditingState }: 
     try {
       const changes: ObjectChanges = {
         status: draft.status || null,
-        cad_visible: draft.cad === 'unknown' ? null : draft.cad === 'true',
         is_visible: draft.visible,
         properties: parseObjectProperties(draft.properties),
         ...(selection.kind === 'pipes'
@@ -122,11 +119,6 @@ export default function MapObjectEditor({ selection, onSaved, onEditingState }: 
             </label>
             <label className="block text-sm font-medium">Status
               <input value={draft.status} onChange={(e) => change('status', e.target.value)} className={inputClass} />
-            </label>
-            <label className="block text-sm font-medium">Synlig i CAD
-              <select value={draft.cad} onChange={(e) => change('cad', e.target.value)} className={inputClass}>
-                <option value="true">Ja</option><option value="false">Nei</option><option value="unknown">Ukjent</option>
-              </select>
             </label>
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={draft.visible} onChange={(e) => change('visible', e.target.checked)} /> Synlig (is_visible)

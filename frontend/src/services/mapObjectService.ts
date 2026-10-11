@@ -8,7 +8,6 @@ export type WaterObject = {
   source_dataset: string
   source_id: string | null
   status: string | null
-  cad_visible: boolean | null
   is_visible: boolean
   pipe_type?: string | null
   point_type?: string | null
@@ -16,10 +15,10 @@ export type WaterObject = {
   properties: Record<string, unknown> | null
   updated_at: string | null
 }
-export type ObjectChanges = Pick<WaterObject, 'status' | 'cad_visible' | 'is_visible' | 'properties' | 'pipe_type' | 'point_type' | 'pipe_category'>
+export type ObjectChanges = Pick<WaterObject, 'status' | 'is_visible' | 'properties' | 'pipe_type' | 'point_type' | 'pipe_category'>
 
 const tables = { pipes: 'water_pipes', points: 'water_points' } as const
-const commonColumns = 'id,source_dataset,source_id,status,cad_visible,is_visible,properties,updated_at'
+const commonColumns = 'id,source_dataset,source_id,status,is_visible,properties,updated_at'
 const columns = (kind: ObjectKind) => `${commonColumns},${kind === 'pipes' ? 'pipe_type,pipe_category' : 'point_type'}`
 
 export async function getWaterObject(kind: ObjectKind, id: string | number, signal: AbortSignal): Promise<WaterObject> {
@@ -32,7 +31,6 @@ export async function updateWaterObject(kind: ObjectKind, original: WaterObject,
   // Only editable attributes are sent; IDs, provenance, geometry and timestamps are server-owned.
   const payload = {
     status: changes.status,
-    cad_visible: changes.cad_visible,
     is_visible: changes.is_visible,
     properties: changes.properties,
     ...(kind === 'pipes'

@@ -9,13 +9,12 @@ export const pipeCategories = {
 export type PipeCategory = keyof typeof pipeCategories
 export type VisibilityFilter = 'all' | 'yes' | 'no' | 'unknown'
 export type MapFilters = {
-  cad: VisibilityFilter
   visible: VisibilityFilter
   categories: PipeCategory[]
   showPoints: boolean
 }
 export const defaultFilters: MapFilters = {
-  cad: 'all', visible: 'all', categories: ['main', 'service', 'unknown'], showPoints: true,
+  visible: 'all', categories: ['main', 'service', 'unknown'], showPoints: true,
 }
 
 export function pipeCategory(feature: Feature): PipeCategory {
@@ -33,8 +32,7 @@ export function filterFeatures(data: FeatureCollection, filters: MapFilters, kin
   return {
     ...data,
     features: data.features.filter((feature) =>
-      matchesVisibility(feature.properties?.cad_visible, filters.cad)
-      && matchesVisibility(feature.properties?.is_visible, filters.visible)
+      matchesVisibility(feature.properties?.is_visible, filters.visible)
       && (kind === 'pipes' ? filters.categories.includes(pipeCategory(feature)) : filters.showPoints),
     ),
   }
