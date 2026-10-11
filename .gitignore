@@ -43,3 +43,4 @@ Desktop.ini
 
 #Backups
 .backup*
+./backup*

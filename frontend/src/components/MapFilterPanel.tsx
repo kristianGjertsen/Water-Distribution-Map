@@ -1,4 +1,5 @@
 import type { Feature, FeatureCollection } from 'geojson'
+import { pointTypes } from '@/lib/mapGeometry'
 import type { ObjectKind } from '@/services/mapObjectService'
 import { defaultFilters, pipeCategories, pipeCategory } from '@/lib/mapFilters'
 import type { MapFilters, VisibilityFilter } from '@/lib/mapFilters'
@@ -50,6 +51,9 @@ export default function MapFilterPanel({ filters, onChange, pipes, points, total
           <input type="checkbox" checked={filters.showPoints} onChange={(event) => onChange({ ...filters, showPoints: event.target.checked })} />
           Vis punkter
         </label>
+        <div className="space-y-1 text-xs text-slate-600">
+          {Object.entries(pointTypes).map(([label, color]) => <div key={label} className="flex items-center gap-2"><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill={color} /></svg>{label}</div>)}
+        </div>
         <button type="button" onClick={() => onChange(defaultFilters)} className="text-sky-700 underline">Nullstill filtre</button>
         <p role="status" className="font-medium">{pipes ? `${count} av ${total} objekter` : 'Laster objekter …'}</p>
         <div className="max-h-52 overflow-y-auto border-t border-slate-200">

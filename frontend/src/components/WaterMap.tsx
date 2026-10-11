@@ -11,7 +11,11 @@ import CoordinateBox from '@/components/CoordinateBox'
 import type { Coordinates } from '@/components/CoordinateBox'
 import MapObjectEditor from '@/components/MapObjectEditor'
 import { featureWithObject } from '@/services/mapObjectService'
-import type { ObjectSelection, WaterObject } from '@/services/mapObjectService'
+import { pointTypes } from '@/lib/mapGeometry'
+import { useMapDrawing } from '@/hooks/useMapDrawing'
+import DrawingToolbar from '@/components/DrawingToolbar'
+import MapObjectCreator from '@/components/MapObjectCreator'
+import type { ObjectKind, ObjectSelection, WaterObject } from '@/services/mapObjectService'
 
 setWorkerUrl(workerUrl)
 
@@ -52,7 +56,7 @@ async function loadMapData(map: Map, signal: AbortSignal) {
     source: 'water-points',
     paint: {
       'circle-radius': 5,
-      'circle-color': '#ffaa00',
+      'circle-color': ['match', ['get', 'point_type'], ['Stoppekran', 'Kran'], pointTypes.Stoppekran, 'Pumpehus', pointTypes.Pumpehus, 'Tankhus', pointTypes.Tankhus, '#ffaa00'],
       'circle-stroke-color': '#000000',
       'circle-stroke-width': 2,
       'circle-pitch-alignment': 'map',
@@ -72,6 +76,18 @@ async function loadMapData(map: Map, signal: AbortSignal) {
     paint: { 'circle-color': '#22d3ee', 'circle-radius': 10, 'circle-pitch-alignment': 'map', 'circle-pitch-scale': 'viewport' },
   }, 'water-points-layer')
 
+  map.addSource('draft-geometry', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+  map.addLayer({
+    id: 'draft-line', type: 'line', source: 'draft-geometry',
+    filter: ['==', ['geometry-type'], 'LineString'],
+    paint: { 'line-color': '#0284c7', 'line-width': 5, 'line-dasharray': [2, 1] },
+  })
+  map.addLayer({
+    id: 'draft-point', type: 'circle', source: 'draft-geometry',
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: { 'circle-color': '#0284c7', 'circle-radius': 8, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2, 'circle-pitch-alignment': 'map' },
+  })
+
   const bounds = new LngLatBounds()
   for (const collection of [pipes, points]) {
     for (const { geometry } of collection.features) {
@@ -87,12 +103,15 @@ async function loadMapData(map: Map, signal: AbortSignal) {
 function WaterMap() {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<Map | null>(null)
+  const [mapInstance, setMapInstance] = useState<Map | null>(null)
+  const drawingTools = useMapDrawing(mapInstance)
+  const { drawingRef, reset: resetDrawing } = drawingTools
   const markerRef = useRef<Marker | null>(null)
   const pinnedRef = useRef(false)
   const [data, setData] = useState<{ pipes: FeatureCollection; points: FeatureCollection } | null>(null)
   const [filters, setFilters] = useState(defaultFilters)
   const dataRef = useRef(data)
-  const [mode, setMode] = useState<'coordinates' | 'objects'>('coordinates')
+  const [mode, setMode] = useState<'coordinates' | 'objects' | 'create'>('coordinates')
   const modeRef = useRef(mode)
   const [selected, setSelected] = useState<ObjectSelection | null>(null)
   const [candidates, setCandidates] = useState<ObjectSelection[]>([])
@@ -104,14 +123,15 @@ function WaterMap() {
 
   const canLeaveEditor = useCallback(() => {
     if (editingRef.current.saving) return false
-    return !editingRef.current.dirty || window.confirm('Forkaste ulagrede endringer?')
-  }, [])
+    return (!editingRef.current.dirty && !drawingRef.current) || window.confirm('Forkaste ulagrede endringer?')
+  }, [drawingRef])
 
   const selectObject = useCallback((next: ObjectSelection, nearby: ObjectSelection[] = [next]) => {
     const key = `${next.kind}:${next.feature.id}`
     if (key !== selectionKeyRef.current) {
       if (!canLeaveEditor()) return false
       editingRef.current = { dirty: false, saving: false }
+      resetDrawing()
     }
     selectionKeyRef.current = key
     modeRef.current = 'objects'
@@ -121,10 +141,11 @@ function WaterMap() {
     markerRef.current?.remove()
     markerRef.current = null
     return true
-  }, [canLeaveEditor])
+  }, [canLeaveEditor, resetDrawing])
 
   function closeEditor() {
     if (!canLeaveEditor()) return
+    resetDrawing()
     editingRef.current = { dirty: false, saving: false }
     selectionKeyRef.current = null
     setSelected(null)
@@ -132,6 +153,7 @@ function WaterMap() {
   }
 
   function handleSaved(selection: ObjectSelection, record: WaterObject) {
+    resetDrawing()
     const feature = featureWithObject(selection.feature, record)
     setData((current) => current ? {
       ...current,
@@ -142,6 +164,38 @@ function WaterMap() {
     } : current)
     setSelected({ ...selection, feature })
     setCandidates((current) => current.map((item) => item.kind === selection.kind && String(item.feature.id) === String(record.id) ? { ...item, feature } : item))
+  }
+
+  function handleDeleted(selection: ObjectSelection) {
+    const id = selection.feature.id ?? selection.feature.properties?.id
+    setData((current) => current ? {
+      ...current,
+      [selection.kind]: {
+        ...current[selection.kind],
+        features: current[selection.kind].features.filter((feature) => String(feature.id) !== String(id)),
+      },
+    } : current)
+    resetDrawing()
+    editingRef.current = { dirty: false, saving: false }
+    selectionKeyRef.current = null
+    setSelected(null)
+    setCandidates([])
+  }
+
+  function handleCreated(kind: ObjectKind, record: WaterObject) {
+    resetDrawing()
+    const feature = featureWithObject({ type: 'Feature', properties: {}, geometry: record.geometry }, record)
+    setData((current) => current ? {
+      ...current, [kind]: { ...current[kind], features: [...current[kind].features, feature] },
+    } : current)
+    setFilters(defaultFilters)
+    editingRef.current = { dirty: false, saving: false }
+    selectionKeyRef.current = `${kind}:${record.id}`
+    const next = { kind, feature }
+    setSelected(next)
+    setCandidates([next])
+    modeRef.current = 'objects'
+    setMode('objects')
   }
 
   useEffect(() => { dataRef.current = data }, [data])
@@ -239,6 +293,8 @@ function WaterMap() {
     }
 
     map.on('mousemove', ({ lngLat, point }) => {
+      if (drawingRef.current) { map.getCanvas().style.cursor = 'crosshair'; return }
+      if (modeRef.current === 'create') return
       if (modeRef.current === 'objects') {
         map.getCanvas().style.cursor = nearbyObjects(point).length ? 'pointer' : ''
         return
@@ -250,6 +306,7 @@ function WaterMap() {
       }
     })
     map.on('click', ({ lngLat, point }) => {
+      if (drawingRef.current || modeRef.current === 'create') return
       if (modeRef.current === 'objects') {
         const nearby = nearbyObjects(point)
         if (nearby.length) selectObject(nearby[0], nearby)
@@ -267,7 +324,7 @@ function WaterMap() {
 
     map.once('load', () => {
       void loadMapData(map, controller.signal).then((result) => {
-        if (result && !controller.signal.aborted) setData(result)
+        if (result && !controller.signal.aborted) { setData(result); setMapInstance(map) }
       }).catch(() => {
         if (!controller.signal.aborted) {
           setError('Kunne ikke hente kartdata. Last siden på nytt for å prøve igjen.')
@@ -282,16 +339,17 @@ function WaterMap() {
       mapRef.current = null
       map.remove()
     }
-  }, [selectObject])
+  }, [selectObject, drawingRef])
 
   return (
     <main className="relative h-dvh w-full">
       <div ref={container} className="h-full w-full" aria-label="Kart over vannledningsnettet" />
-      <aside className="absolute top-4 bottom-28 left-4 w-80 max-w-[calc(100%-5rem)] space-y-3 overflow-y-auto">
+      <aside className={`${drawingTools.drawing ? 'hidden' : ''} absolute top-4 bottom-28 left-4 w-80 max-w-[calc(100%-5rem)] space-y-3 overflow-y-auto`}>
         <div role="group" aria-label="Klikkmodus" className="flex gap-1 rounded-lg bg-white p-1 shadow">
-          {(['coordinates', 'objects'] as const).map((value) => (
+          {(['coordinates', 'objects', 'create'] as const).map((value) => (
             <button key={value} type="button" aria-pressed={mode === value} onClick={() => {
               if (value === mode || !canLeaveEditor()) return
+              resetDrawing()
               editingRef.current = { dirty: false, saving: false }
               selectionKeyRef.current = null
               setSelected(null)
@@ -305,7 +363,7 @@ function WaterMap() {
               markerRef.current = null
               if (mapRef.current) mapRef.current.getCanvas().style.cursor = value === 'coordinates' ? 'crosshair' : ''
             }} className={`flex-1 rounded px-3 py-2 text-sm font-medium ${mode === value ? 'bg-sky-700 text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
-              {value === 'coordinates' ? 'Koordinater' : 'Velg objekt'}
+              {value === 'coordinates' ? 'Koordinater' : value === 'objects' ? 'Velg objekt' : 'Opprett'}
             </button>
           ))}
         </div>
@@ -340,8 +398,22 @@ function WaterMap() {
           }}
         />
       </aside>
+      {mode === 'create' && (
+        <aside aria-label="Opprett kartobjekt" className={`${drawingTools.drawing ? 'hidden' : ''} absolute top-4 right-4 bottom-4 z-10 w-96 max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-xl`}>
+          <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">Opprett objekt</h2>
+            <button type="button" className="text-sm underline" onClick={() => {
+              if (!canLeaveEditor()) return
+              resetDrawing()
+              editingRef.current = { dirty: false, saving: false }
+              modeRef.current = 'objects'
+              setMode('objects')
+            }}>Lukk</button>
+          </div>
+          <MapObjectCreator onStartDrawing={drawingTools.start} drawing={Boolean(drawingTools.drawing)} ready={Boolean(mapInstance)} onResetGeometry={resetDrawing} onCreated={handleCreated} onEditingState={updateEditingState} />
+        </aside>
+      )}
       {selected && mode === 'objects' && (
-        <aside aria-label="Objektinformasjon" className="absolute top-4 right-4 bottom-4 z-10 w-96 max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-xl">
+        <aside aria-label="Objektinformasjon" className={`${drawingTools.drawing ? 'hidden' : ''} absolute top-4 right-4 bottom-4 z-10 w-96 max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-xl`}>
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">{selected.kind === 'pipes' ? 'Ledning' : 'Punkt'} #{selected.feature.id}</h2>
             <button type="button" onClick={closeEditor} className="text-sm text-slate-600 underline">Lukk</button>
@@ -356,9 +428,10 @@ function WaterMap() {
               </select>
             </label>
           )}
-          <MapObjectEditor key={`${selected.kind}:${selected.feature.id}`} selection={selected} onSaved={handleSaved} onEditingState={updateEditingState} />
+          <MapObjectEditor key={`${selected.kind}:${selected.feature.id}`} selection={selected} onSaved={handleSaved} onDeleted={handleDeleted} onEditingState={updateEditingState} onStartDrawing={drawingTools.start} drawing={Boolean(drawingTools.drawing)} onResetGeometry={resetDrawing} />
         </aside>
       )}
+      <DrawingToolbar tools={drawingTools} />
       {error && (
         <p role="alert" className="absolute bottom-32 left-4 right-16 rounded bg-white p-3 text-sm text-red-700 shadow">
           {error}
