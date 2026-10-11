@@ -1,8 +1,8 @@
 const statuses = [
   { value: 'unknown', label: 'Ukjent' },
   { value: 'operational', label: 'Operativ' },
-  { value: 'Non-operational', label: 'Ute av drift' },
-  { value: 'maintance-needed', label: 'Vedlikehold kreves' },
+  { value: 'non-operational', label: 'Ute av drift' },
+  { value: 'maintenance-needed', label: 'Vedlikehold kreves' },
 ]
 
 type Props = {

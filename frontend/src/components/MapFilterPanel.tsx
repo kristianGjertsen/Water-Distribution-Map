@@ -1,7 +1,7 @@
 import type { Feature, FeatureCollection } from 'geojson'
 import { pointTypes, hiddenPointStyle } from '@/lib/mapPointStyles'
 import type { ObjectKind } from '@/services/mapObjectService'
-import { defaultFilters, pipeCategories, pipeCategory } from '@/lib/mapFilters'
+import { defaultFilters, pipeCategories } from '@/lib/mapFilters'
 import type { MapFilters, VisibilityFilter } from '@/lib/mapFilters'
 
 type Props = {
@@ -13,10 +13,8 @@ type Props = {
   onSelect: (feature: Feature, kind: ObjectKind) => void
 }
 
-const booleanLabel = (value: unknown) => value === true ? 'Ja' : value === false ? 'Nei' : 'Ukjent'
 
-export default function MapFilterPanel({ filters, onChange, pipes, points, total, onSelect }: Props) {
-  const count = (pipes?.features.length ?? 0) + (points?.features.length ?? 0)
+export default function MapFilterPanel({ filters, onChange }: Props) {
   return (
     <details open className="rounded-lg bg-white/95 p-3 text-sm shadow">
       <summary className="cursor-pointer font-semibold text-slate-900">Lag og filtre</summary>
@@ -59,16 +57,7 @@ export default function MapFilterPanel({ filters, onChange, pipes, points, total
           })}
         </div>
         <button type="button" onClick={() => onChange(defaultFilters)} className="text-sky-700 underline">Nullstill filtre</button>
-        <p role="status" className="font-medium">{pipes ? `${count} av ${total} objekter` : 'Laster objekter …'}</p>
-        <div className="max-h-52 overflow-y-auto border-t border-slate-200">
-          {pipes && count === 0 && <p className="py-3 text-slate-600">Ingen objekter matcher filtrene.</p>}
-          {([['pipes', pipes], ['points', points]] as const).flatMap(([kind, collection]) => collection?.features.map((feature, index) => (
-            <button key={`${kind}-${feature.id ?? index}`} type="button" onClick={() => onSelect(feature, kind)} className="block w-full border-b border-slate-100 py-2 text-left hover:bg-sky-50 focus-visible:bg-sky-50">
-              <span className="block font-medium">{kind === 'pipes' ? pipeCategories[pipeCategory(feature)].label : feature.properties?.point_type ?? 'Punkt'} · #{feature.id ?? feature.properties?.id ?? index + 1}</span>
-              <span className="block text-xs text-slate-600">Synlig: {booleanLabel(feature.properties?.is_visible)}</span>
-            </button>
-          )) ?? [])}
-        </div>
+        
       </div>
     </details>
   )

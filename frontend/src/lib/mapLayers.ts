@@ -1,6 +1,32 @@
-import type { Map } from 'maplibre-gl'
+import type { Map, ExpressionSpecification } from 'maplibre-gl'
 import { pipeCategories } from '@/lib/mapFilters'
 import { pointIconExpression, pointIconLayout, registerPointIcons } from '@/lib/mapPointIcons'
+import { operationColors } from '@/lib/mapOperations'
+
+const normalPipeColor: ExpressionSpecification = ['case', ['==', ['get', 'is_visible'], false], '#9ca3af', ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.color, 'service', pipeCategories.service.color, pipeCategories.unknown.color]]
+
+
+export function setOperationsStyle(map: Map, operations: boolean) {
+  const lineColor: string | ExpressionSpecification = operations
+    ? [
+        'match',
+        ['get', 'status'],
+        'operational', operationColors.operational,
+        'non-operational', operationColors.not_operational,
+        'maintenance-needed', operationColors.maintenance,
+        'unknown', operationColors.unknown,
+        operationColors.other, // Fallback
+      ]
+    : normalPipeColor;
+
+  map.setPaintProperty('water-pipes-layer', 'line-color', lineColor);
+
+  map.setLayoutProperty(
+    'water-points-layer',
+    'icon-image',
+    pointIconExpression(false, operations)
+  );
+}
 
 // Sources must be registered before adding their layers. Order controls stacking.
 export function addWaterMapLayers(map: Map) {
@@ -21,7 +47,7 @@ export function addWaterMapLayers(map: Map) {
     source: 'water-pipes',
     layout: { 'line-sort-key': ['match', ['get', 'pipe_category'], 'main', 1, 0] },
     paint: {
-      'line-color': ['case', ['==', ['get', 'is_visible'], false], '#9ca3af', ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.color, 'service', pipeCategories.service.color, pipeCategories.unknown.color]],
+      'line-color': normalPipeColor,
       'line-width': ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.width, pipeCategories.service.width],
     },
   })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LngLatBounds, Map, Marker, NavigationControl, ScaleControl, setWorkerUrl } from 'maplibre-gl'
+import { LngLatBounds, Map, NavigationControl, ScaleControl, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Geometry } from 'geojson'
 import type { GeoJSONSource } from 'maplibre-gl'
@@ -9,39 +9,32 @@ import { getWaterPipes, getWaterPoints } from '@/services/mapServices'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import MapObjectEditor from '@/components/MapObjectEditor'
 import { featureWithObject } from '@/services/mapObjectService'
-import { addWaterMapLayers } from '@/lib/mapLayers'
+import { filterOperationalMap, operationColors } from '@/lib/mapOperations'
+import { addWaterMapLayers, setOperationsStyle } from '@/lib/mapLayers'
 import { useMapDrawing } from '@/hooks/useMapDrawing'
 import DrawingToolbar from '@/components/DrawingToolbar'
 import MapObjectCreator from '@/components/MapObjectCreator'
 import type { ObjectKind, ObjectSelection, WaterObject } from '@/services/mapObjectService'
-
 setWorkerUrl(workerUrl)
-
 function extendBounds(bounds: LngLatBounds, geometry: Geometry) {
   if (geometry.type === 'GeometryCollection') {
     geometry.geometries.forEach((item) => extendBounds(bounds, item))
     return
   }
-
   const positions = geometry.type === 'Point' ? [geometry.coordinates]
     : geometry.type === 'MultiPoint' || geometry.type === 'LineString' ? geometry.coordinates
       : geometry.type === 'MultiPolygon' ? geometry.coordinates.flat(2)
         : geometry.coordinates.flat()
-
   for (const [lng, lat] of positions) bounds.extend([lng, lat])
 }
-
 async function loadMapData(map: Map, signal: AbortSignal) {
   const [pipes, points] = await Promise.all([getWaterPipes(), getWaterPoints()])
   if (signal.aborted) return
-
   map.addSource('water-pipes', { type: 'geojson', data: pipes })
   map.addSource('water-points', { type: 'geojson', data: points })
-
   map.addSource('selected-object', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   map.addSource('draft-geometry', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
   addWaterMapLayers(map)
-
   const bounds = new LngLatBounds()
   for (const collection of [pipes, points]) {
     for (const { geometry } of collection.features) {
@@ -53,7 +46,6 @@ async function loadMapData(map: Map, signal: AbortSignal) {
   }
   return { pipes, points }
 }
-
 function WaterMap() {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<Map | null>(null)
@@ -61,12 +53,10 @@ function WaterMap() {
   const snapDataRef = useRef<{ pipes: FeatureCollection; points: FeatureCollection } | null>(null)
   const drawingTools = useMapDrawing(mapInstance, snapDataRef)
   const { drawingRef, reset: resetDrawing } = drawingTools
-  const markerRef = useRef<Marker | null>(null)
-  const pinnedRef = useRef(false)
   const [data, setData] = useState<{ pipes: FeatureCollection; points: FeatureCollection } | null>(null)
   const [filters, setFilters] = useState(defaultFilters)
   const dataRef = useRef(data)
-  const [mode, setMode] = useState<'coordinates' | 'objects' | 'create'>('coordinates')
+  const [mode, setMode] = useState<'objects' | 'create' | 'operations'>('objects')
   const modeRef = useRef(mode)
   const [selected, setSelected] = useState<ObjectSelection | null>(null)
   const [candidates, setCandidates] = useState<ObjectSelection[]>([])
@@ -75,12 +65,10 @@ function WaterMap() {
   const updateEditingState = useCallback((dirty: boolean, saving: boolean) => {
     editingRef.current = { dirty, saving }
   }, [])
-
   const canLeaveEditor = useCallback(() => {
     if (editingRef.current.saving) return false
     return (!editingRef.current.dirty && !drawingRef.current) || window.confirm('Forkaste ulagrede endringer?')
   }, [drawingRef])
-
   const selectObject = useCallback((next: ObjectSelection, nearby: ObjectSelection[] = [next]) => {
     const key = `${next.kind}:${next.feature.id}`
     if (key !== selectionKeyRef.current) {
@@ -89,15 +77,14 @@ function WaterMap() {
       resetDrawing()
     }
     selectionKeyRef.current = key
-    modeRef.current = 'objects'
-    setMode('objects')
+    if (modeRef.current !== 'operations') {
+      modeRef.current = 'objects'
+      setMode('objects')
+    }
     setSelected(next)
     setCandidates(nearby)
-    markerRef.current?.remove()
-    markerRef.current = null
     return true
   }, [canLeaveEditor, resetDrawing])
-
   function closeEditor() {
     if (!canLeaveEditor()) return
     resetDrawing()
@@ -106,7 +93,6 @@ function WaterMap() {
     setSelected(null)
     setCandidates([])
   }
-
   function handleSaved(selection: ObjectSelection, record: WaterObject) {
     resetDrawing()
     const feature = featureWithObject(selection.feature, record)
@@ -120,7 +106,6 @@ function WaterMap() {
     setSelected({ ...selection, feature })
     setCandidates((current) => current.map((item) => item.kind === selection.kind && String(item.feature.id) === String(record.id) ? { ...item, feature } : item))
   }
-
   function handleDeleted(selection: ObjectSelection) {
     const id = selection.feature.id ?? selection.feature.properties?.id
     setData((current) => current ? {
@@ -136,7 +121,6 @@ function WaterMap() {
     setSelected(null)
     setCandidates([])
   }
-
   function handleCreated(kind: ObjectKind, record: WaterObject) {
     resetDrawing()
     const feature = featureWithObject({ type: 'Feature', properties: {}, geometry: record.geometry }, record)
@@ -152,37 +136,31 @@ function WaterMap() {
     modeRef.current = 'objects'
     setMode('objects')
   }
-
   useEffect(() => { dataRef.current = data }, [data])
   const filtered = useMemo(() => data ? {
-    pipes: filterFeatures(data.pipes, filters, 'pipes'),
-    points: filterFeatures(data.points, filters, 'points'),
-  } : null, [data, filters])
-
+    pipes: mode === 'operations' ? filterOperationalMap(data.pipes) : filterFeatures(data.pipes, filters, 'pipes'),
+    points: mode === 'operations' ? filterOperationalMap(data.points) : filterFeatures(data.points, filters, 'points'),
+  } : null, [data, filters, mode])
   useEffect(() => {
     snapDataRef.current = filtered
     const map = mapRef.current
-    if (!map || !filtered) return
+    if (!map || !mapInstance || !filtered) return
     const pipes = map.getSource('water-pipes') as GeoJSONSource | undefined
     const points = map.getSource('water-points') as GeoJSONSource | undefined
+    setOperationsStyle(map, mode === 'operations')
     pipes?.setData(filtered.pipes)
     points?.setData(filtered.points)
-  }, [filtered])
-
+  }, [filtered, mapInstance, mode])
   useEffect(() => {
     const source = mapRef.current?.getSource('selected-object') as GeoJSONSource | undefined
     const visible = selected && filtered?.[selected.kind].features.find((feature) => String(feature.id) === String(selected.feature.id))
     source?.setData({ type: 'FeatureCollection', features: visible ? [visible] : [] })
   }, [selected, filtered])
-  const [pinned, setPinned] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   useEffect(() => {
     if (!container.current) return
-
     const controller = new AbortController()
     setError(null)
-
     const map = new Map({
       container: container.current,
       center: [10.615, 59.691],
@@ -197,19 +175,15 @@ function WaterMap() {
             tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
             maxzoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
           },
+
           terrain: {
             type: 'raster-dem',
-            url: 'https://tiles.mapterhorn.com/tilejson.json',
+            tiles: ['https://tiles.mapterhorn.com/{z}/{x}/{y}.webp'],
             encoding: 'terrarium',
             tileSize: 512,
-          },
-          hillshade: {
-            type: 'raster-dem',
-            url: 'https://tiles.mapterhorn.com/tilejson.json',
-            encoding: 'terrarium',
-            tileSize: 512,
+            maxzoom: 12,
           },
         },
         layers: [
@@ -217,19 +191,18 @@ function WaterMap() {
           {
             id: 'terrain-shading',
             type: 'hillshade',
-            source: 'hillshade',
-            paint: { 'hillshade-exaggeration': 0.3 },
+            source: 'terrain',
+            paint: {
+              'hillshade-exaggeration': 0.2
+            },
           },
         ],
         terrain: { source: 'terrain', exaggeration: 1 },
       },
     })
-
     mapRef.current = map
-
     map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
     map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left')
-
     function nearbyObjects(point: { x: number; y: number }): ObjectSelection[] {
       if (!dataRef.current || !map.getLayer('water-points-layer')) return []
       const hits = map.queryRenderedFeatures([[point.x - 5, point.y - 5], [point.x + 5, point.y + 5]], {
@@ -246,31 +219,15 @@ function WaterMap() {
         return feature ? [{ kind, feature } as ObjectSelection] : []
       })
     }
-
-    map.on('mousemove', ({ lngLat, point }) => {
+    map.on('mousemove', ({ point }) => {
       if (drawingRef.current) { map.getCanvas().style.cursor = 'crosshair'; return }
-      if (modeRef.current === 'create') return
-      if (modeRef.current === 'objects') {
-        map.getCanvas().style.cursor = nearbyObjects(point).length ? 'pointer' : ''
-        return
-      }
+      map.getCanvas().style.cursor = modeRef.current !== 'create' && nearbyObjects(point).length ? 'pointer' : ''
     })
-    map.on('click', ({ lngLat, point }) => {
+    map.on('click', ({ point }) => {
       if (drawingRef.current || modeRef.current === 'create') return
-      if (modeRef.current === 'objects') {
-        const nearby = nearbyObjects(point)
-        if (nearby.length) selectObject(nearby[0], nearby)
-        return
-      }
-      const { lng, lat } = lngLat.wrap()
-      pinnedRef.current = true
-      setPinned(true)
-      markerRef.current?.remove()
-      markerRef.current = new Marker({ color: '#0f172a' })
-        .setLngLat([lng, lat])
-        .addTo(map)
+      const nearby = nearbyObjects(point)
+      if (nearby.length) selectObject(nearby[0], nearby)
     })
-
     map.once('load', () => {
       void loadMapData(map, controller.signal).then((result) => {
         if (result && !controller.signal.aborted) { setData(result); setMapInstance(map) }
@@ -280,22 +237,18 @@ function WaterMap() {
         }
       })
     })
-
     return () => {
       controller.abort()
-      markerRef.current?.remove()
-      markerRef.current = null
       mapRef.current = null
       map.remove()
     }
   }, [selectObject, drawingRef])
-
   return (
     <main className="relative h-dvh w-full">
       <div ref={container} className="h-full w-full" aria-label="Kart over vannledningsnettet" />
       <aside className={`${drawingTools.drawing ? 'hidden' : ''} absolute top-4 bottom-28 left-4 w-80 max-w-[calc(100%-5rem)] space-y-3 overflow-y-auto`}>
         <div role="group" aria-label="Klikkmodus" className="flex gap-1 rounded-lg bg-white p-1 shadow">
-          {(['coordinates', 'objects', 'create'] as const).map((value) => (
+          {(['objects', 'create', 'operations'] as const).map((value) => (
             <button key={value} type="button" aria-pressed={mode === value} onClick={() => {
               if (value === mode || !canLeaveEditor()) return
               resetDrawing()
@@ -305,18 +258,25 @@ function WaterMap() {
               setCandidates([])
               modeRef.current = value
               setMode(value)
-              pinnedRef.current = false
-              setPinned(false)
-              markerRef.current?.remove()
-              markerRef.current = null
-              if (mapRef.current) mapRef.current.getCanvas().style.cursor = value === 'coordinates' ? 'crosshair' : ''
+              if (mapRef.current) mapRef.current.getCanvas().style.cursor = ''
             }} className={`flex-1 rounded px-3 py-2 text-sm font-medium ${mode === value ? 'bg-sky-700 text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
-              {value === 'coordinates' ? 'Koordinater' : value === 'objects' ? 'Velg objekt' : 'Opprett'}
+              {value === 'objects' ? 'Velg objekt' : value === 'create' ? 'Opprett' : 'Driftskart'}
             </button>
           ))}
         </div>
         {mode === 'objects' && <p className="rounded-lg bg-white/95 p-3 text-sm shadow">Klikk på en ledning eller et punkt for å se og endre informasjon.</p>}
-        <MapFilterPanel
+        {mode === 'operations' ? (
+          <section aria-label="Driftskart" className="space-y-2 rounded-lg bg-white/95 p-3 text-sm shadow">
+            <h2 className="font-semibold">Driftskart</h2>
+            <p>Viser kun aktive objekter (is_visible = true).</p>
+            <p className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: operationColors.operational }} />Operativ</p>
+            <p className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: operationColors.not_operational }} />Ute av drift</p>
+            <p className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: operationColors.maintenance }} />Vedlikehold kreves</p>
+            <p className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ backgroundColor: operationColors.unknown }} />Ukjent</p>
+            <p role="status">{filtered ? `${filtered.pipes.features.length + filtered.points.features.length} aktive objekter` : 'Laster objekter …'}</p>
+            <p>Klikk på en ledning eller et punkt for å se og endre informasjon.</p>
+          </section>
+        ) : <MapFilterPanel
           filters={filters}
           onChange={setFilters}
           pipes={filtered?.pipes ?? null}
@@ -332,7 +292,7 @@ function WaterMap() {
               maxZoom: 18, duration: 600,
             })
           }}
-        />
+        />}
       </aside>
       {mode === 'create' && (
         <aside aria-label="Opprett kartobjekt" className={`${drawingTools.drawing ? 'hidden' : ''} absolute top-4 right-4 bottom-4 z-10 w-96 max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-xl`}>
@@ -348,7 +308,7 @@ function WaterMap() {
           <MapObjectCreator onStartDrawing={drawingTools.start} drawing={Boolean(drawingTools.drawing)} ready={Boolean(mapInstance)} onResetGeometry={resetDrawing} onCreated={handleCreated} onEditingState={updateEditingState} />
         </aside>
       )}
-      {selected && mode === 'objects' && (
+      {selected && mode !== 'create' && (
         <aside aria-label="Objektinformasjon" className={`${drawingTools.drawing ? 'hidden' : ''} absolute top-4 right-4 bottom-4 z-10 w-96 max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-xl`}>
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">{selected.kind === 'pipes' ? 'Ledning' : 'Punkt'} #{selected.feature.id}</h2>
@@ -376,5 +336,4 @@ function WaterMap() {
     </main>
   )
 }
-
 export default WaterMap
