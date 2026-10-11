@@ -1,3 +1,4 @@
+import { SNAP_RADIUS } from '@/lib/mapSnapping'
 import type { useMapDrawing } from '@/hooks/useMapDrawing'
 
 export default function DrawingToolbar({ tools }: { tools: ReturnType<typeof useMapDrawing> }) {
@@ -7,6 +8,8 @@ export default function DrawingToolbar({ tools }: { tools: ReturnType<typeof use
     <section aria-label="Tegneverktøy" className="absolute bottom-5 left-1/2 z-30 w-96 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl bg-white p-4 shadow-xl">
       <h2 className="font-semibold">{kind === 'pipes' ? 'Tegn ledning' : 'Plasser punkt'}</h2>
       <p className="mt-1 text-sm text-slate-600">{kind === 'pipes' ? 'Klikk for å legge til knekkpunkter. Dra de nummererte punktene for å flytte dem.' : 'Klikk i kartet for ny plassering, eller dra punktet.'}</p>
+      <p className="mt-1 text-xs text-slate-500">Snapper automatisk til punkter og ledningsknekkpunkter innen {SNAP_RADIUS} piksler. Grønn ring viser hvor punktet festes.</p>
+      <p role="status" className="mt-1 text-xs font-medium text-emerald-700">{tools.snapped ? 'Festet til punkt' : 'Flytt pekeren nær et punkt for å feste'}</p>
       <div className="mt-2 max-h-24 overflow-y-auto text-xs">
         {vertices.map((p, index) => <div key={index} className="flex justify-between gap-2 py-1">
           <span className="font-mono">{index + 1}: {p[0].toFixed(7)}, {p[1].toFixed(7)}</span>

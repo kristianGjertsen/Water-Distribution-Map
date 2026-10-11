@@ -2,11 +2,6 @@ import type { LineString, Point, Position } from 'geojson'
 import type { ObjectKind } from '@/services/mapObjectService'
 
 export type WaterGeometry = Point | LineString
-export const pointTypes = {
-  Stoppekran: '#ffaa00',
-  Pumpehus: '#9333ea',
-  Tankhus: '#0891b2',
-} as const
 
 export function geometryFromVertices(kind: ObjectKind, vertices: Position[]): WaterGeometry | null {
   if (kind === 'points') return vertices.length === 1 ? { type: 'Point', coordinates: vertices[0] } : null

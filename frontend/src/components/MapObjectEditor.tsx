@@ -3,7 +3,7 @@ import type { SubmitEvent } from 'react'
 import { deleteWaterObject, getWaterObject, parseObjectProperties, updateWaterObject } from '@/services/mapObjectService'
 import GeometryButton from '@/components/GeometryButton'
 import StatusSelect from '@/components/StatusSelect'
-import { pointTypes } from '@/lib/mapGeometry'
+import { pointTypes } from '@/lib/mapPointStyles'
 import type { WaterGeometry } from '@/lib/mapGeometry'
 import type { StartDrawing } from '@/hooks/useMapDrawing'
 import type { ObjectChanges, ObjectSelection, WaterObject } from '@/services/mapObjectService'
@@ -157,7 +157,7 @@ export default function MapObjectEditor({ selection, onDeleted, onSaved, onEditi
             <label className="block text-sm font-medium">Øvrige egenskaper (JSON)
               <textarea value={draft.properties} onChange={(e) => change('properties', e.target.value)} rows={10} spellCheck={false} className={`${inputClass} font-mono text-xs`} />
             </label>
-            <GeometryButton label={selection.kind === 'pipes' ? 'Endre trase i kartet' : 'Flytt punkt i kartet'} onClick={() => onStartDrawing(selection.kind, draft.geometry, (geometry) => change('geometry', geometry))} />
+            <GeometryButton label={selection.kind === 'pipes' ? 'Endre trase i kartet' : 'Flytt punkt i kartet'} onClick={() => onStartDrawing(selection.kind, draft.geometry, (geometry) => change('geometry', geometry), { kind: selection.kind, id: selection.feature.id! })} />
             <p className="text-xs text-slate-600">{draft.geometry.type === 'Point' ? draft.geometry.coordinates.map((n) => n.toFixed(7)).join(', ') : `${draft.geometry.coordinates.length} knekkpunkter`}</p>
             <div className="flex items-center gap-3">
               <button type="submit" disabled={!dirty || busy} className="rounded bg-sky-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{saving ? 'Lagrer …' : 'Lagre endringer'}</button>

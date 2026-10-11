@@ -4,14 +4,14 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { FeatureCollection, Geometry } from 'geojson'
 import type { GeoJSONSource } from 'maplibre-gl'
 import MapFilterPanel from '@/components/MapFilterPanel'
-import { defaultFilters, filterFeatures, pipeCategories } from '@/lib/mapFilters'
+import { defaultFilters, filterFeatures } from '@/lib/mapFilters'
 import { getWaterPipes, getWaterPoints } from '@/services/mapServices'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import CoordinateBox from '@/components/CoordinateBox'
 import type { Coordinates } from '@/components/CoordinateBox'
 import MapObjectEditor from '@/components/MapObjectEditor'
 import { featureWithObject } from '@/services/mapObjectService'
-import { pointTypes } from '@/lib/mapGeometry'
+import { addWaterMapLayers } from '@/lib/mapLayers'
 import { useMapDrawing } from '@/hooks/useMapDrawing'
 import DrawingToolbar from '@/components/DrawingToolbar'
 import MapObjectCreator from '@/components/MapObjectCreator'
@@ -40,53 +40,9 @@ async function loadMapData(map: Map, signal: AbortSignal) {
   map.addSource('water-pipes', { type: 'geojson', data: pipes })
   map.addSource('water-points', { type: 'geojson', data: points })
 
-  map.addLayer({
-    id: 'water-pipes-layer',
-    type: 'line',
-    source: 'water-pipes',
-    layout: { 'line-sort-key': ['match', ['get', 'pipe_category'], 'main', 1, 0] },
-    paint: {
-      'line-color': ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.color, 'service', pipeCategories.service.color, pipeCategories.unknown.color],
-      'line-width': ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.width, pipeCategories.service.width],
-    },
-  })
-  map.addLayer({
-    id: 'water-points-layer',
-    type: 'circle',
-    source: 'water-points',
-    paint: {
-      'circle-radius': 5,
-      'circle-color': ['match', ['get', 'point_type'], ['Stoppekran', 'Kran'], pointTypes.Stoppekran, 'Pumpehus', pointTypes.Pumpehus, 'Tankhus', pointTypes.Tankhus, '#ffaa00'],
-      'circle-stroke-color': '#000000',
-      'circle-stroke-width': 2,
-      'circle-pitch-alignment': 'map',
-      'circle-pitch-scale': 'viewport',
-    },
-  })
-
   map.addSource('selected-object', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
-  map.addLayer({
-    id: 'selected-pipe', type: 'line', source: 'selected-object',
-    filter: ['==', ['geometry-type'], 'LineString'],
-    paint: { 'line-color': '#22d3ee', 'line-width': 10 },
-  }, 'water-pipes-layer')
-  map.addLayer({
-    id: 'selected-point', type: 'circle', source: 'selected-object',
-    filter: ['==', ['geometry-type'], 'Point'],
-    paint: { 'circle-color': '#22d3ee', 'circle-radius': 10, 'circle-pitch-alignment': 'map', 'circle-pitch-scale': 'viewport' },
-  }, 'water-points-layer')
-
   map.addSource('draft-geometry', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
-  map.addLayer({
-    id: 'draft-line', type: 'line', source: 'draft-geometry',
-    filter: ['==', ['geometry-type'], 'LineString'],
-    paint: { 'line-color': '#0284c7', 'line-width': 5, 'line-dasharray': [2, 1] },
-  })
-  map.addLayer({
-    id: 'draft-point', type: 'circle', source: 'draft-geometry',
-    filter: ['==', ['geometry-type'], 'Point'],
-    paint: { 'circle-color': '#0284c7', 'circle-radius': 8, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2, 'circle-pitch-alignment': 'map' },
-  })
+  addWaterMapLayers(map)
 
   const bounds = new LngLatBounds()
   for (const collection of [pipes, points]) {
@@ -104,7 +60,8 @@ function WaterMap() {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<Map | null>(null)
   const [mapInstance, setMapInstance] = useState<Map | null>(null)
-  const drawingTools = useMapDrawing(mapInstance)
+  const snapDataRef = useRef<{ pipes: FeatureCollection; points: FeatureCollection } | null>(null)
+  const drawingTools = useMapDrawing(mapInstance, snapDataRef)
   const { drawingRef, reset: resetDrawing } = drawingTools
   const markerRef = useRef<Marker | null>(null)
   const pinnedRef = useRef(false)
@@ -205,6 +162,7 @@ function WaterMap() {
   } : null, [data, filters])
 
   useEffect(() => {
+    snapDataRef.current = filtered
     const map = mapRef.current
     if (!map || !filtered) return
     const pipes = map.getSource('water-pipes') as GeoJSONSource | undefined

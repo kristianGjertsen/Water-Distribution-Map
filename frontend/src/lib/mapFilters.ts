@@ -1,9 +1,9 @@
 import type { Feature, FeatureCollection } from 'geojson'
 
 export const pipeCategories = {
-  main: { label: 'Hovedledning', color: '#dc2626', width: 5 },
-  service: { label: 'Vanlig ledning', color: '#1684ce', width: 3 },
-  unknown: { label: 'Ukjent', color: '#eab308', width: 3 },
+  main: { label: 'Hovedledning', color: '#dc2626', width: 7 },
+  service: { label: 'Vanlig ledning', color: '#1684ce', width: 4 },
+  unknown: { label: 'Ukjent', color: '#eab308', width: 4 },
 } as const
 
 export type PipeCategory = keyof typeof pipeCategories
