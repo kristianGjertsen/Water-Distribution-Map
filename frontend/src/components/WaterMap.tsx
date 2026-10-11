@@ -7,8 +7,6 @@ import MapFilterPanel from '@/components/MapFilterPanel'
 import { defaultFilters, filterFeatures } from '@/lib/mapFilters'
 import { getWaterPipes, getWaterPoints } from '@/services/mapServices'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import CoordinateBox from '@/components/CoordinateBox'
-import type { Coordinates } from '@/components/CoordinateBox'
 import MapObjectEditor from '@/components/MapObjectEditor'
 import { featureWithObject } from '@/services/mapObjectService'
 import { addWaterMapLayers } from '@/lib/mapLayers'
@@ -176,7 +174,6 @@ function WaterMap() {
     const visible = selected && filtered?.[selected.kind].features.find((feature) => String(feature.id) === String(selected.feature.id))
     source?.setData({ type: 'FeatureCollection', features: visible ? [visible] : [] })
   }, [selected, filtered])
-  const [coordinates, setCoordinates] = useState<Coordinates | null>(null)
   const [pinned, setPinned] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -257,11 +254,6 @@ function WaterMap() {
         map.getCanvas().style.cursor = nearbyObjects(point).length ? 'pointer' : ''
         return
       }
-      map.getCanvas().style.cursor = 'crosshair'
-      if (!pinnedRef.current) {
-        const { lng, lat } = lngLat.wrap()
-        setCoordinates({ lng, lat })
-      }
     })
     map.on('click', ({ lngLat, point }) => {
       if (drawingRef.current || modeRef.current === 'create') return
@@ -273,7 +265,6 @@ function WaterMap() {
       const { lng, lat } = lngLat.wrap()
       pinnedRef.current = true
       setPinned(true)
-      setCoordinates({ lng, lat })
       markerRef.current?.remove()
       markerRef.current = new Marker({ color: '#0f172a' })
         .setLngLat([lng, lat])
@@ -316,7 +307,6 @@ function WaterMap() {
               setMode(value)
               pinnedRef.current = false
               setPinned(false)
-              setCoordinates(null)
               markerRef.current?.remove()
               markerRef.current = null
               if (mapRef.current) mapRef.current.getCanvas().style.cursor = value === 'coordinates' ? 'crosshair' : ''
@@ -326,18 +316,6 @@ function WaterMap() {
           ))}
         </div>
         {mode === 'objects' && <p className="rounded-lg bg-white/95 p-3 text-sm shadow">Klikk på en ledning eller et punkt for å se og endre informasjon.</p>}
-        {mode === 'coordinates' && <CoordinateBox
-          key={pinned ? `${coordinates?.lng},${coordinates?.lat}` : 'live'}
-          coordinates={coordinates}
-          pinned={pinned}
-          onResume={() => {
-            pinnedRef.current = false
-            setPinned(false)
-            setCoordinates(null)
-            markerRef.current?.remove()
-            markerRef.current = null
-          }}
-        />}
         <MapFilterPanel
           filters={filters}
           onChange={setFilters}
