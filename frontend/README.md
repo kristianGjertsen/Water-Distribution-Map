@@ -30,3 +30,39 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Mappestruktur
+
+```text
+src/
+├── pages/
+│   ├── main/
+│   │   ├── MapPage.tsx
+│   │   ├── Subcomponents/
+│   │   │   ├── Account/
+│   │   │   ├── Selector/
+│   │   │   ├── MapObject/
+│   │   │   └── Drawing/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   ├── services/
+│   │   ├── types/
+│   │   └── tests/
+│   └── auth/
+│       └── AuthPage.tsx
+├── components/ui/
+│   ├── Button.tsx
+│   └── Select.tsx
+├── shared/
+│   ├── auth/
+│   └── supabase.ts
+├── App.tsx
+├── main.tsx
+└── index.css
+```
+
+Alle sidespesifikke filer hører til sidemappen: hovedkomponent, underkomponenter, hooks, logikk, tjenester, typer og tester. Underkomponenter grupperes etter funksjon og deles videre når det er naturlig. Generelle UI-komponenter beholdes i `components/ui/`.
+
+`shared/` inneholder kode brukt på tvers av sider: Supabase-klienten og autentisering/sesjon. `App.tsx` velger side ut fra sesjonen; bruker- og tilgangspanelet tilhører kartsiden. Oppstart og globale stiler ligger i roten av `src/`.
+
+Kjør `npm run build`, `npm run lint` og `npm test` fra `frontend/`. Testkommandoen finner tester under `src/pages/*/tests/`.

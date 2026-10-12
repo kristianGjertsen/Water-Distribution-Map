@@ -7,15 +7,18 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test src/pages/*/tests/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-select": "^2.4.0",
     "@supabase/supabase-js": "^2.109.0",
     "@tailwindcss/vite": "^4.3.3",
+    "lucide-react": "^1.55.0",
     "maplibre-gl": "^6.13.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
