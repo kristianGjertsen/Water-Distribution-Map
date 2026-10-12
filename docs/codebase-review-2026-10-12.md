@@ -3,7 +3,7 @@
 **Dato:** 2026-10-12  
 **Gjennomgått ref:** `main` @ `61cb12b7d3b11167c629151193c5eccdebbd64ed`  
 **Mål:** Lesbarhet, tydelig ansvar per fil, minimalt med gjentakelser, datakvalitet, trygg opprydding og uendret funksjonalitet.  
-**Omfang:** Alle 64 sporbare filer/konfigurasjonsfiler i repoet ble kartlagt. Applikasjonskomponenter, hooks, tjenester, hjelpefunksjoner, tester og konfigurasjon ble lest. `frontend/package-lock.json` og rotens lockfile ble kontrollert på metadata og avhengigheter, ikke linje for linje.
+**Omfang:** Alle 62 sporbare filer/konfigurasjonsfiler i repoet ble kartlagt. Applikasjonskomponenter, hooks, tjenester, hjelpefunksjoner, tester og konfigurasjon ble lest. `frontend/package-lock.json` og rotens lockfile ble kontrollert på metadata og avhengigheter, ikke linje for linje.
 
 > **Avgrensning:** Repoet inneholder **ikke** database-migrasjoner, SQL-definisjoner av RPC-ene, skjema, RLS-policyer eller produksjonsdata. Funn om databasekontrakten er derfor risikoer/kontrollpunkter, **ikke** bekreftede databasefeil. Testene og byggekommandoen er ikke kjørt i dette miljøet; verifiser i lokal checkout/CI før merge. Ingen live Supabase-data ble endret.
 
