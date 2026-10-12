@@ -1,3 +1,5 @@
+import { mapIds } from '@/lib/mapConfig'
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Marker } from 'maplibre-gl'
 import type { Map, GeoJSONSource } from 'maplibre-gl'
@@ -5,7 +7,7 @@ import type { RefObject } from 'react'
 import { nearestSnap, snapCandidates, SNAP_RADIUS } from '@/lib/mapSnapping'
 import type { SnapData, SnapObject } from '@/lib/mapSnapping'
 import type { Position } from 'geojson'
-import type { ObjectKind } from '@/services/mapObjectService'
+import type { ObjectKind } from '@/types/waterObjects'
 import { geometryFromVertices, validateGeometry } from '@/lib/mapGeometry'
 import type { WaterGeometry } from '@/lib/mapGeometry'
 
@@ -52,11 +54,11 @@ export function useMapDrawing(map: Map | null, snapData: RefObject<SnapData>) {
     if (nearest) return nearest
     // Terrain rendering can differ from CPU projection. Hit-test the actual
     // rendered points, but retain canonical coordinates (not tile-quantized ones).
-    if (!map.getLayer('water-points-layer')) return null
+    if (!map.getLayer(mapIds.pointsLayer)) return null
     const hits = map.queryRenderedFeatures([
       [point.x - SNAP_RADIUS, point.y - SNAP_RADIUS],
       [point.x + SNAP_RADIUS, point.y + SNAP_RADIUS],
-    ], { layers: ['water-points-layer'] })
+    ], { layers: [mapIds.pointsLayer] })
     const ids = new Set(hits.map((feature) => String(feature.id)))
     const rendered = snapCandidates({ pipes: { type: 'FeatureCollection', features: [] }, points: {
       type: 'FeatureCollection',
@@ -157,7 +159,7 @@ export function useMapDrawing(map: Map | null, snapData: RefObject<SnapData>) {
         element.classList.toggle('bg-sky-700', !target)
         const vertices = current.vertices.map((p, i) => i === index ? point : p)
         const geometry = geometryFromVertices(current.kind, vertices)
-        ;(map.getSource('draft-geometry') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [] })
+        ;(map.getSource(mapIds.draftSource) as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [] })
       })
       marker.on('dragend', () => {
         const current = drawingRef.current
@@ -173,17 +175,12 @@ export function useMapDrawing(map: Map | null, snapData: RefObject<SnapData>) {
 
   useEffect(() => {
     const geometry = drawing ? geometryFromVertices(drawing.kind, drawing.vertices) : preview
-    ;(map?.getSource('draft-geometry') as GeoJSONSource | undefined)?.setData({
+    ;(map?.getSource(mapIds.draftSource) as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection', features: geometry ? [{ type: 'Feature', properties: {}, geometry }] : [],
     })
   }, [map, drawing, preview])
 
-  useEffect(() => {
-    if (!drawing && !preview) return
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [drawing, preview])
+  useUnsavedChangesWarning(Boolean(drawing || preview))
 
   function finish() {
     if (!drawing) return

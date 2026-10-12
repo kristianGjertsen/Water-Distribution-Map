@@ -1,81 +1,75 @@
+import { mapIds } from '@/lib/mapConfig'
 import type { Map, ExpressionSpecification } from 'maplibre-gl'
 import { pipeCategories } from '@/lib/mapFilters'
 import { pointIconExpression, pointIconLayout, registerPointIcons } from '@/lib/mapPointIcons'
-import { operationColors } from '@/lib/mapOperations'
+import { operationStatuses, operationStatusExpression, statusFallback } from '@/lib/operationStatus'
 
 const normalPipeColor: ExpressionSpecification = ['case', ['==', ['get', 'is_visible'], false], '#9ca3af', ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.color, 'service', pipeCategories.service.color, pipeCategories.unknown.color]]
 
 
 export function setOperationsStyle(map: Map, operations: boolean) {
   const lineColor: string | ExpressionSpecification = operations
-    ? [
-        'match',
-        ['get', 'status'],
-        'operational', operationColors.operational,
-        'non-operational', operationColors.not_operational,
-        'maintenance-needed', operationColors.maintenance,
-        'unknown', operationColors.unknown,
-        operationColors.other, // Fallback
-      ]
-    : normalPipeColor;
+    ? operationStatusExpression(status => operationStatuses[status].color, statusFallback.color)
+    : normalPipeColor
 
-  map.setPaintProperty('water-pipes-layer', 'line-color', lineColor);
+  map.setPaintProperty(mapIds.pipesLayer, 'line-color', lineColor)
+  map.setLayoutProperty(mapIds.pipesOutline, 'visibility', operations ? 'none' : 'visible')
 
   map.setLayoutProperty(
-    'water-points-layer',
+    mapIds.pointsLayer,
     'icon-image',
     pointIconExpression(false, operations)
-  );
+  )
 }
 
 // Sources must be registered before adding their layers. Order controls stacking.
 export function addWaterMapLayers(map: Map) {
   registerPointIcons(map)
   map.addLayer({
-    id: 'water-pipes-outline',
+    id: mapIds.pipesOutline,
     type: 'line',
-    source: 'water-pipes',
+    source: mapIds.pipesSource,
     filter: ['==', ['get', 'is_visible'], false],
     paint: {
       'line-color': '#000000',
-      'line-width': ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.width + 4, pipeCategories.service.width + 4],
+      'line-width': ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.width + 4, 'service', pipeCategories.service.width + 4, pipeCategories.unknown.width + 4],
     },
   })
   map.addLayer({
-    id: 'water-pipes-layer',
+    id: mapIds.pipesLayer,
     type: 'line',
-    source: 'water-pipes',
+    source: mapIds.pipesSource,
     layout: { 'line-sort-key': ['match', ['get', 'pipe_category'], 'main', 1, 0] },
     paint: {
       'line-color': normalPipeColor,
-      'line-width': ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.width, pipeCategories.service.width],
+      'line-width': ['match', ['get', 'pipe_category'], 'main', pipeCategories.main.width, 'service', pipeCategories.service.width, pipeCategories.unknown.width],
     },
   })
   map.addLayer({
-    id: 'water-points-layer',
+    id: mapIds.pointsLayer,
     type: 'symbol',
-    source: 'water-points',
+    source: mapIds.pointsSource,
     layout: pointIconLayout(pointIconExpression()),
   })
 
   map.addLayer({
-    id: 'selected-pipe', type: 'line', source: 'selected-object',
+    id: mapIds.selectedPipe, type: 'line', source: mapIds.selectedSource,
     filter: ['==', ['geometry-type'], 'LineString'],
     paint: { 'line-color': '#22d3ee', 'line-width': 10 },
-  }, 'water-pipes-outline')
+  }, mapIds.pipesOutline)
   map.addLayer({
-    id: 'selected-point', type: 'symbol', source: 'selected-object',
+    id: mapIds.selectedPoint, type: 'symbol', source: mapIds.selectedSource,
     filter: ['==', ['geometry-type'], 'Point'],
     layout: pointIconLayout(pointIconExpression(true)),
-  }, 'water-points-layer')
+  }, mapIds.pointsLayer)
 
   map.addLayer({
-    id: 'draft-line', type: 'line', source: 'draft-geometry',
+    id: mapIds.draftLine, type: 'line', source: mapIds.draftSource,
     filter: ['==', ['geometry-type'], 'LineString'],
     paint: { 'line-color': '#0284c7', 'line-width': 5, 'line-dasharray': [2, 1] },
   })
   map.addLayer({
-    id: 'draft-point', type: 'symbol', source: 'draft-geometry',
+    id: mapIds.draftPoint, type: 'symbol', source: mapIds.draftSource,
     filter: ['==', ['geometry-type'], 'Point'],
     layout: pointIconLayout('water-point-draft'),
   })

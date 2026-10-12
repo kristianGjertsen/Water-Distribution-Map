@@ -1,5 +1,5 @@
 import type { LineString, Point, Position } from 'geojson'
-import type { ObjectKind } from '@/services/mapObjectService'
+import type { ObjectKind } from '@/types/waterObjects'
 
 export type WaterGeometry = Point | LineString
 

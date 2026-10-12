@@ -1,7 +1,7 @@
 import type { ExpressionSpecification, Map, SymbolLayerSpecification } from 'maplibre-gl'
 import { draftPointStyle, fallbackPointStyle, hiddenPointStyle, pointTypeAliases, pointTypes, selectedPointStyle } from '@/lib/mapPointStyles'
 import type { PointStyle } from '@/lib/mapPointStyles'
-import { operationColors } from '@/lib/mapOperations'
+import { operationStatuses, operationStatusExpression, statusFallback } from '@/lib/operationStatus'
 
 function addIcon(map: Map, id: string, style: PointStyle) {
   if (map.hasImage(id)) return
@@ -29,7 +29,7 @@ function addIcon(map: Map, id: string, style: PointStyle) {
 
 export function registerPointIcons(map: Map) {
   for (const [name, base] of Object.entries({ ...pointTypes, fallback: fallbackPointStyle })) {
-    for (const [status, color] of Object.entries(operationColors)) {
+    for (const [status, color] of Object.entries({ ...operationStatuses, other: statusFallback }).map(([status, config]) => [status, config.color])) {
       addIcon(map, `water-point-${name}-operations-${status}`, { ...base, color })
     }
     for (const hidden of [false, true]) {
@@ -51,7 +51,7 @@ export function pointIconExpression(selected = false, operations = false): Expre
   const names = { ...Object.fromEntries(Object.keys(pointTypes).map(name => [name, name])), ...pointTypeAliases }
   const [first, ...rest] = Object.entries(names)
   const icon = (name: string): ExpressionSpecification => operations
-    ? ['case', ['==', ['get', 'status'], 'operational'], `water-point-${name}-operations-operational`, `water-point-${name}-operations-other`]
+    ? operationStatusExpression(status => `water-point-${name}-operations-${status}`, `water-point-${name}-operations-other`)
     : ['case', ['==', ['get', 'is_visible'], false],
       `water-point-${name}-hidden${selected ? '-selected' : ''}`, `water-point-${name}${selected ? '-selected' : ''}`]
   if (!first) return icon('fallback')

@@ -1,7 +1,9 @@
+import { pipeCategories } from '@/lib/mapFilters'
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning'
 import { useEffect, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import { createWaterObject } from '@/services/mapObjectService'
-import type { ObjectKind, WaterObject } from '@/services/mapObjectService'
+import type { ObjectKind, WaterObject } from '@/types/waterObjects'
 import { pointTypes } from '@/lib/mapPointStyles'
 import type { WaterGeometry } from '@/lib/mapGeometry'
 import type { StartDrawing } from '@/hooks/useMapDrawing'
@@ -24,15 +26,10 @@ export default function MapObjectCreator({ onStartDrawing, drawing, ready, onRes
   const [status, setStatus] = useState('unknown')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const kind: ObjectKind = type === 'main' || type === 'service' ? 'pipes' : 'points'
+  const kind: ObjectKind = Object.hasOwn(pipeCategories, type) ? 'pipes' : 'points'
   const dirty = geometry !== null || name !== '' || status !== 'unknown'
   useEffect(() => { onEditingState(dirty, saving) }, [dirty, saving, onEditingState])
-  useEffect(() => {
-    if (!dirty && !saving) return
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty, saving])
+  useUnsavedChangesWarning(dirty || saving)
 
   async function save(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -60,7 +57,7 @@ export default function MapObjectCreator({ onStartDrawing, drawing, ready, onRes
       <label className="block text-sm font-medium">Objekttype
         <select value={type} onChange={(event) => {
           const next = event.target.value
-          const nextKind = next === 'main' || next === 'service' ? 'pipes' : 'points'
+          const nextKind = Object.hasOwn(pipeCategories, next) ? 'pipes' : 'points'
           if (nextKind !== kind && geometry) {
             if (!window.confirm('Bytte objekttype og forkaste tegnet geometri?')) return
             setGeometry(null)
@@ -70,7 +67,7 @@ export default function MapObjectCreator({ onStartDrawing, drawing, ready, onRes
           setError(null)
         }} className="mt-1 w-full rounded border border-slate-300 p-2">
           <optgroup label="Punkter">{Object.keys(pointTypes).map((value) => <option key={value}>{value}</option>)}</optgroup>
-          <optgroup label="Ledninger"><option value="main">Hovedledning (main)</option><option value="service">Vanlig ledning (service)</option></optgroup>
+          <optgroup label="Ledninger">{Object.entries(pipeCategories).map(([value, category]) => <option key={value} value={value}>{category.label}</option>)}</optgroup>
         </select>
       </label>
       <label className="block text-sm font-medium">Navn (valgfritt)

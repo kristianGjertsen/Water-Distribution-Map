@@ -1,9 +1,6 @@
-const statuses = [
-  { value: 'unknown', label: 'Ukjent' },
-  { value: 'operational', label: 'Operativ' },
-  { value: 'non-operational', label: 'Ute av drift' },
-  { value: 'maintenance-needed', label: 'Vedlikehold kreves' },
-]
+import { operationStatuses } from '@/lib/operationStatus'
+
+const statuses = Object.entries(operationStatuses).map(([value, status]) => ({ value, ...status }))
 
 type Props = {
   value: string
