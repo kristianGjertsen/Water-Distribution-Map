@@ -23,11 +23,12 @@ export default function MapObjectCreator({ onStartDrawing, drawing, ready, onRes
   const [type, setType] = useState('Stoppekran')
   const [geometry, setGeometry] = useState<WaterGeometry | null>(null)
   const [name, setName] = useState('')
+  const [comment, setComment] = useState('')
   const [status, setStatus] = useState('unknown')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const kind: ObjectKind = Object.hasOwn(pipeCategories, type) ? 'pipes' : 'points'
-  const dirty = geometry !== null || name !== '' || status !== 'unknown'
+  const dirty = geometry !== null || name !== '' || comment !== '' || status !== 'unknown'
   useEffect(() => { onEditingState(dirty, saving) }, [dirty, saving, onEditingState])
   useUnsavedChangesWarning(dirty || saving)
 
@@ -39,12 +40,12 @@ export default function MapObjectCreator({ onStartDrawing, drawing, ready, onRes
     onEditingState(true, true)
     try {
       const record = await createWaterObject(kind, {
-        geometry, status: status || null, is_visible: true,
+        geometry, status: status || null, is_visible: true, comment: comment || null,
         properties: {
           description: 'Manuelt opprettet',
           ...(name.trim() ? { name: name.trim() } : {}),
         },
-        ...(kind === 'pipes' ? { pipe_category: type, pipe_type: null } : { point_type: type }),
+        ...(kind === 'pipes' ? { pipe_category: type } : { point_type: type }),
       })
       onCreated(kind, record)
     } catch (error) {
@@ -75,6 +76,10 @@ export default function MapObjectCreator({ onStartDrawing, drawing, ready, onRes
       </label>
       <label className="block text-sm font-medium">Status
         <StatusSelect value={status} onChange={setStatus} className="mt-1 w-full rounded border border-slate-300 bg-white p-2" />
+      </label>
+      <label className="block text-sm font-medium">Kommentar (valgfritt)
+        <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={3}
+          className="mt-1 w-full rounded border border-slate-300 p-2" />
       </label>
       <GeometryButton disabled={!ready} label={kind === 'pipes' ? 'Tegn ledning i kartet' : 'Plasser punkt i kartet'} onClick={() => onStartDrawing(kind, geometry, (next) => { setGeometry(next); setError(null) })} />
       <p className="text-sm text-slate-600">{geometry ? geometry.type === 'Point' ? `Valgt: ${geometry.coordinates.map((n) => n.toFixed(7)).join(', ')}` : `${geometry.coordinates.length} knekkpunkter valgt` : 'Velg geometri før du lagrer.'}</p>

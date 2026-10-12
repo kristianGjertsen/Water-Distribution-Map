@@ -9,8 +9,6 @@ export default function ObjectMetadata({ record }: { record: WaterObject }) {
               <dd className="break-all font-medium text-slate-800">{record.id}</dd>
               <dt className="text-slate-500">Kildedatasett</dt>
               <dd className="break-all text-slate-800">{record.source_dataset}</dd>
-              <dt className="text-slate-500">Kilde-ID</dt>
-              <dd className="break-all text-slate-800">{record.source_id ?? '—'}</dd>
               <dt className="text-slate-500">Sist oppdatert</dt>
               <dd className="text-slate-800">
                 {record.updated_at ? new Date(record.updated_at).toLocaleString('nb-NO') : '—'}

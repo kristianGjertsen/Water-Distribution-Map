@@ -8,15 +8,14 @@ export type WaterObject = {
   id: number
   geometry: WaterGeometry
   source_dataset: string
-  source_id: string | null
   status: string | null
   is_visible: boolean
-  pipe_type?: string | null
+  comment: string | null
   point_type?: string | null
   pipe_category?: string | null
   properties: Record<string, unknown> | null
   updated_at: string | null
 }
-export type ObjectChanges = Pick<WaterObject, 'geometry' | 'status' | 'is_visible' | 'properties' | 'pipe_type' | 'point_type' | 'pipe_category'>
+export type ObjectChanges = Pick<WaterObject, 'geometry' | 'status' | 'is_visible' | 'properties' | 'comment' | 'point_type' | 'pipe_category'>
 
 export type MapData = Record<ObjectKind, import('geojson').FeatureCollection>

@@ -24,6 +24,7 @@ type Props = {
   selection: ObjectSelection
   record: WaterObject
   onCancel: () => void
+  focusComment?: boolean
   onStartDrawing: StartDrawing
   drawing: boolean
   onResetGeometry: () => void
@@ -38,6 +39,7 @@ type Draft = {
   category: string
   status: string
   visible: boolean
+  comment: string
   properties: string
 }
 
@@ -54,7 +56,8 @@ const labelClass = 'block text-sm font-medium text-slate-700'
 function makeDraft(record: WaterObject): Draft {
   return {
     geometry: record.geometry,
-    type: record.pipe_type ?? record.point_type ?? '',
+    type: record.point_type ?? '',
+    comment: record.comment ?? '',
     category: record.pipe_category ?? '',
     status: record.status ?? '',
     visible: record.is_visible,
@@ -73,6 +76,7 @@ export default function MapObjectEditor({
   selection,
   record,
   onCancel,
+  focusComment = false,
   onStartDrawing,
   drawing,
   onResetGeometry,
@@ -95,6 +99,10 @@ export default function MapObjectEditor({
   useEffect(() => {
     onEditingState(dirty, busy)
   }, [dirty, busy, onEditingState])
+
+  useEffect(() => {
+    if (focusComment) document.getElementById('water-object-comment')?.focus()
+  }, [focusComment])
 
   useUnsavedChangesWarning(dirty || busy)
 
@@ -122,9 +130,10 @@ export default function MapObjectEditor({
         geometry: draft.geometry,
         status: draft.status || null,
         is_visible: draft.visible,
+        comment: draft.comment || null,
         properties: parseObjectProperties(draft.properties),
         ...(isPipe
-          ? { pipe_type: draft.type || null, pipe_category: draft.category || null }
+          ? { pipe_category: draft.category || null }
           : { point_type: draft.type || null }),
       }
 
@@ -193,11 +202,12 @@ export default function MapObjectEditor({
                 </label>
               )}
 
+              {!isPipe && (
               <label className={labelClass}>
-                {isPipe ? 'Ledningstype' : 'Punkttype'}
+                Punkttype
                 <input
                   value={draft.type}
-                  list={isPipe ? undefined : 'point-types'}
+                  list="point-types"
                   onChange={(event) => change('type', event.target.value)}
                   className={inputClass}
                 />
@@ -207,6 +217,7 @@ export default function MapObjectEditor({
                   </datalist>
                 )}
               </label>
+              )}
 
               <label className={labelClass}>
                 Status
@@ -256,8 +267,16 @@ export default function MapObjectEditor({
               </details>
             </section>
 
-            {/* Advanced properties */}
             <section className={sectionClass}>
+              <label className={labelClass} htmlFor="water-object-comment">Kommentar</label>
+              <textarea id="water-object-comment" value={draft.comment}
+                onChange={(event) => change('comment', event.target.value)} rows={3}
+                className={`${inputClass} resize-y`} placeholder="Skriv en merknad om objektet" />
+            </section>
+
+            {/* Advanced properties */}
+            <details className={sectionClass}>
+              <summary className="cursor-pointer text-sm font-semibold">Vis avansert informasjon</summary>
               <label className={labelClass} htmlFor="water-object-properties">
                 Øvrige egenskaper
               </label>
@@ -270,7 +289,7 @@ export default function MapObjectEditor({
                 spellCheck={false}
                 className={`${inputClass} resize-y font-mono text-xs`}
               />
-            </section>
+            </details>
 
             {/* Primary actions */}
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">

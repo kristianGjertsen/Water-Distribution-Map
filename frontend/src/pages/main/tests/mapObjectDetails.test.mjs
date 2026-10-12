@@ -136,3 +136,25 @@ test('late object responses are ignored when the selected panel unmounts', async
   await tick()
   assert.equal(h.render().props.role, 'status')
 })
+
+
+test('comment edits are saved independently of JSON properties and can be cleared', async () => {
+  const h = harness('MapObjectEditor')
+  h.props.record = { ...record, comment: 'Existing comment' }
+  let saved
+  h.props.onSaved = (_selection, updated) => { saved = updated }
+  let tree = h.render()
+  const commentField = () => find(tree, node => node.props.id === 'water-object-comment')
+  assert.equal(commentField().props.value, 'Existing comment')
+  commentField().props.onChange({ target: { value: 'New comment' } })
+  tree = h.render()
+  await find(tree, node => node.type === 'form').props.onSubmit({ preventDefault() {} })
+  assert.equal(saved.comment, 'New comment')
+  assert.equal(saved.properties, null)
+  tree = h.render()
+  commentField().props.onChange({ target: { value: '' } })
+  tree = h.render()
+  await find(tree, node => node.type === 'form').props.onSubmit({ preventDefault() {} })
+  assert.equal(saved.comment, null)
+  assert.equal(Object.hasOwn(saved, 'pipe_type'), false)
+})

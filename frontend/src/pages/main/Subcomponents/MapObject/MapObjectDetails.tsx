@@ -5,12 +5,13 @@ import type { WaterObject } from '@/pages/main/types/waterObjects'
 import MapObjectEditor from './MapObjectEditor'
 import MapObjectView from './MapObjectView'
 
-type Props = Omit<ComponentProps<typeof MapObjectEditor>, 'record' | 'onCancel'>
+type Props = Omit<ComponentProps<typeof MapObjectEditor>, 'record' | 'onCancel' | 'focusComment'>
 
 // Keyed by object ID in MapPage, so each selection starts in read-only mode.
 export default function MapObjectDetails(props: Props) {
   const [record, setRecord] = useState<WaterObject | null>(null)
   const [editing, setEditing] = useState(false)
+  const [focusComment, setFocusComment] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -42,7 +43,7 @@ export default function MapObjectDetails(props: Props) {
     <button type="button" onClick={refresh} className="text-sm text-sky-700 underline">Prøv på nytt</button>
   </div>
 
-  if (editing) return <MapObjectEditor {...props} record={record}
+  if (editing) return <MapObjectEditor {...props} record={record} focusComment={focusComment}
     onCancel={() => setEditing(false)}
     onSaved={(selected, updated) => {
       setRecord(updated)
@@ -52,5 +53,6 @@ export default function MapObjectDetails(props: Props) {
     }} />
 
   return <MapObjectView record={record} kind={selection.kind} saved={saved}
-    onEdit={() => { setSaved(false); setEditing(true) }} onRefresh={refresh} />
+    onEdit={() => { setSaved(false); setFocusComment(false); setEditing(true) }}
+    onAddComment={() => { setSaved(false); setFocusComment(true); setEditing(true) }} onRefresh={refresh} />
 }

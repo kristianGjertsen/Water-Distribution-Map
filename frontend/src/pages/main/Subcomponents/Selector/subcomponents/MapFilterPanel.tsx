@@ -3,6 +3,7 @@ import { defaultFilters, pipeCategories } from '@/pages/main/lib/mapFilters'
 import type { MapFilters, PipeCategory, VisibilityFilter } from '@/pages/main/lib/mapFilters'
 import Button from '@/components/Button'
 import Select from '@/components/Select'
+import Checkbox from '@/components/Checkbox'
 
 type Props = {
   filters: MapFilters
@@ -38,22 +39,43 @@ export default function MapFilterPanel({ filters, onChange }: Props) {
 
         {/* Display Componenets */}
         <fieldset className="space-y-2">
-          <legend className="mb-2 font-medium">Ledningstyper</legend>
+
           {(Object.keys(pipeCategories) as PipeCategory[]).map((category) => (
-            <label key={category} className="flex items-center gap-2">
-              <input type="checkbox" checked={filters.categories.includes(category)} onChange={(event) => onChange({
-                ...filters,
-                categories: event.target.checked ? [...filters.categories, category] : filters.categories.filter((value) => value !== category),
-              })} />
-              <svg width="24" height="10" aria-hidden="true"><line x1="0" y1="5" x2="24" y2="5" stroke={pipeCategories[category].color} strokeWidth={pipeCategories[category].width} /></svg>
+            <Checkbox
+              key={category}
+              checked={filters.categories.includes(category)}
+              variant='default'
+              onChange={(event) =>
+                onChange({
+                  ...filters,
+                  categories: event.target.checked
+                    ? [...filters.categories, category]
+                    : filters.categories.filter((value) => value !== category),
+                })
+              }
+              size="sm"
+              className="w-full"
+            >
+              <svg width="24" height="10" aria-hidden="true">
+                <line
+                  x1="0"
+                  y1="5"
+                  x2="24"
+                  y2="5"
+                  stroke={pipeCategories[category].color}
+                  strokeWidth={pipeCategories[category].width}
+                />
+              </svg>
+
               {pipeCategories[category].label}
-            </label>
+            </Checkbox>
           ))}
         </fieldset>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={filters.showPoints} onChange={(event) => onChange({ ...filters, showPoints: event.target.checked })} />
+        <Checkbox variant="default" size="sm" className="w-full"
+          checked={filters.showPoints}
+          onChange={(event) => onChange({ ...filters, showPoints: event.target.checked })}>
           Vis punkter
-        </label>
+        </Checkbox>
         <PointLegend />
         <Button onClick={() => onChange(defaultFilters)}
           variant='default'>

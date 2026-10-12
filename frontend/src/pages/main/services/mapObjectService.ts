@@ -17,8 +17,9 @@ async function saveObject(kind: ObjectKind, changes: ObjectChanges, original?: W
     status: changes.status,
     is_visible: changes.is_visible,
     properties: changes.properties,
+    comment: changes.comment,
     ...(kind === 'pipes'
-      ? { pipe_type: changes.pipe_type, pipe_category: changes.pipe_category }
+      ? { pipe_category: changes.pipe_category }
       : { point_type: changes.point_type }),
   }
   const { data, error } = await supabase.rpc('save_water_object', {
