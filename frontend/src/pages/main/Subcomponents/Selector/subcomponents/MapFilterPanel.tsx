@@ -11,36 +11,32 @@ type Props = {
 }
 
 
-const filterOptions = [
+const visibilityOptions = [
+  { value: 'yes', label: 'Kun synlige' },
+  { value: 'no', label: 'Kun skjulte' },
+  { value: 'all', label: 'Alle (inkludert skjulte' },
   { value: 'unknown', label: 'Ukjent' },
-  { value: 'operational', label: 'Operativ' },
-  { value: 'non-operational', label: 'Ute av drift' },
-  { value: 'maintenance-needed', label: 'Vedlikehold kreves' },
-]
+] satisfies { value: VisibilityFilter; label: string }[]
 
 export default function MapFilterPanel({ filters, onChange }: Props) {
   return (
-    <div className='bg-white p-4 '>
+    <div className='bg-white p-4 rounded-md'>
       <h2 className="font-semibold text-slate-900">Lag og filtre</h2>
       <div className="mt-3 space-y-3">
-        {([
-          ['visible', 'Synlig i kartet'],
-        ] as const).map(([key, label]) => (
-          <label key={key} className="flex items-center justify-between gap-2">
-            {label}
-            <Select
-              value={filters[key]}
-              onValueChange={(value) =>
-                onChange({
-                  ...filters,
-                  [key]: value as VisibilityFilter,
-                })
-              }
-              options={filterOptions}
-            />
+        <label className="flex items-center justify-between gap-2">
+          Synlig i kartet
+          <Select
+            value={filters.visible}
+            onValueChange={(value) => {
+              const option = visibilityOptions.find((option) => option.value === value)
+              if (option) onChange({ ...filters, visible: option.value })
+            }}
+            options={visibilityOptions}
+          />
+        </label>
 
-          </label>
-        ))}
+
+        {/* Display Componenets */}
         <fieldset className="space-y-2">
           <legend className="mb-2 font-medium">Ledningstyper</legend>
           {(Object.keys(pipeCategories) as PipeCategory[]).map((category) => (

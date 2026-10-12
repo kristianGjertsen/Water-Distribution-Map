@@ -1,3 +1,4 @@
+import ObjectMetadata from './subcomponents/ObjectMetadata'
 import { pipeCategories } from '@/pages/main/lib/mapFilters'
 import { useUnsavedChangesWarning } from '@/pages/main/hooks/useUnsavedChangesWarning'
 import { useEffect, useState } from 'react'
@@ -10,7 +11,6 @@ import type { WaterGeometry } from '@/pages/main/lib/mapGeometry'
 import { pointTypes } from '@/pages/main/lib/mapPointStyles'
 import {
   deleteWaterObject,
-  getWaterObject,
   parseObjectProperties,
   updateWaterObject,
 } from '@/pages/main/services/mapObjectService'
@@ -22,6 +22,8 @@ import type {
 
 type Props = {
   selection: ObjectSelection
+  record: WaterObject
+  onCancel: () => void
   onStartDrawing: StartDrawing
   drawing: boolean
   onResetGeometry: () => void
@@ -69,6 +71,8 @@ function geometrySummary(geometry: WaterGeometry): string {
 
 export default function MapObjectEditor({
   selection,
+  record,
+  onCancel,
   onStartDrawing,
   drawing,
   onResetGeometry,
@@ -76,49 +80,17 @@ export default function MapObjectEditor({
   onSaved,
   onEditingState,
 }: Props) {
-  const [record, setRecord] = useState<WaterObject | null>(null)
-  const [draft, setDraft] = useState<Draft | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [draft, setDraft] = useState<Draft>(() => makeDraft(record))
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [reload, setReload] = useState(0)
 
-  const id = selection.feature.id ?? selection.feature.properties?.id
   const isPipe = selection.kind === 'pipes'
   const busy = saving || deleting
   const dirty =
     record !== null &&
     draft !== null &&
     JSON.stringify(draft) !== JSON.stringify(makeDraft(record))
-
-  // Load the selected object. Abort outdated requests when selection changes.
-  useEffect(() => {
-    const controller = new AbortController()
-    setLoading(true)
-    setError(null)
-    setSaved(false)
-    setRecord(null)
-    setDraft(null)
-
-    void getWaterObject(selection.kind, id, controller.signal)
-      .then((next) => {
-        if (controller.signal.aborted) return
-        setRecord(next)
-        setDraft(makeDraft(next))
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setError('Kunne ikke hente objektet. Sjekk nettforbindelsen og karttilgangen din.')
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
-
-    return () => controller.abort()
-  }, [selection.kind, id, reload])
 
   useEffect(() => {
     onEditingState(dirty, busy)
@@ -129,23 +101,14 @@ export default function MapObjectEditor({
   function change<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((current) => current ? { ...current, [key]: value } : current)
     setError(null)
-    setSaved(false)
   }
 
-  function discard() {
-    if (!record || busy || drawing) return
-    setDraft(makeDraft(record))
-    setError(null)
-    setSaved(false)
-    onResetGeometry()
-  }
-
-  function reloadObject() {
+  function cancel() {
     if (busy || drawing) return
-    if (dirty && !window.confirm('Forkaste ulagrede endringer og hente objektet på nytt?')) return
-
+    if (dirty && !window.confirm('Forkaste ulagrede endringer?')) return
     onResetGeometry()
-    setReload((current) => current + 1)
+    onEditingState(false, false)
+    onCancel()
   }
 
   async function save(event: SubmitEvent<HTMLFormElement>) {
@@ -153,7 +116,6 @@ export default function MapObjectEditor({
     if (!record || !draft || busy || drawing || !dirty) return
 
     setError(null)
-    setSaved(false)
 
     try {
       const changes: ObjectChanges = {
@@ -170,10 +132,8 @@ export default function MapObjectEditor({
       onEditingState(dirty, true)
       const updated = await updateWaterObject(selection.kind, record, changes)
 
-      setRecord(updated)
-      setDraft(makeDraft(updated))
+      onEditingState(false, false)
       onSaved(selection, updated)
-      setSaved(true)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Kunne ikke lagre endringene.')
     } finally {
@@ -182,14 +142,13 @@ export default function MapObjectEditor({
   }
 
   async function remove() {
-    if (!record || loading || busy || drawing) return
+    if (busy || drawing) return
 
     const objectLabel = isPipe ? 'ledningen' : 'punktet'
     if (!window.confirm(`Slette ${objectLabel} #${record.id} permanent fra databasen? Dette kan ikke angres i appen.`)) return
 
     setDeleting(true)
     setError(null)
-    setSaved(false)
     onEditingState(dirty, true)
 
     try {
@@ -204,30 +163,13 @@ export default function MapObjectEditor({
 
   return (
     <div className="space-y-4 text-slate-900">
-      {loading && (
-        <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-          Henter informasjon …
-        </div>
-      )}
-
-      {!loading && record && draft && (
         <form onSubmit={save} className="space-y-4">
+          <div className="rounded-lg bg-sky-50 p-3 text-sm text-sky-900">
+            <h3 className="font-semibold">Rediger objekt</h3>
+            <p>Endringene lagres når du velger «Lagre endringer».</p>
+          </div>
           {/* Read-only source metadata */}
-          <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h3 className="text-sm font-semibold text-slate-900">Objektinformasjon</h3>
-            <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-x-3 gap-y-2 text-xs">
-              <dt className="text-slate-500">ID</dt>
-              <dd className="break-all font-medium text-slate-800">{record.id}</dd>
-              <dt className="text-slate-500">Kildedatasett</dt>
-              <dd className="break-all text-slate-800">{record.source_dataset}</dd>
-              <dt className="text-slate-500">Kilde-ID</dt>
-              <dd className="break-all text-slate-800">{record.source_id ?? '—'}</dd>
-              <dt className="text-slate-500">Sist oppdatert</dt>
-              <dd className="text-slate-800">
-                {record.updated_at ? new Date(record.updated_at).toLocaleString('nb-NO') : '—'}
-              </dd>
-            </dl>
-          </section>
+          <ObjectMetadata record={record} />
 
           <fieldset disabled={busy || drawing} className="min-w-0 space-y-4 disabled:opacity-60">
             {/* Editable attributes */}
@@ -341,17 +283,16 @@ export default function MapObjectEditor({
               </button>
               <button
                 type="button"
-                disabled={!dirty || busy || drawing}
-                onClick={discard}
+                disabled={busy || drawing}
+                onClick={cancel}
                 className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Forkast
+                Avbryt
               </button>
               {dirty && <span className="text-xs text-amber-700">Ulagrede endringer</span>}
             </div>
           </fieldset>
         </form>
-      )}
 
       {drawing && (
         <p role="status" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">
@@ -361,13 +302,6 @@ export default function MapObjectEditor({
       {error && (
         <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
       )}
-      {saved && (
-        <p role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-          Lagret i databasen. Kart og filtre er oppdatert.
-        </p>
-      )}
-
-      {!loading && record && (
         <section className="space-y-3 border-t border-slate-200 pt-4">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Administrasjon</h3>
           <div className="flex flex-wrap items-center gap-3">
@@ -379,23 +313,9 @@ export default function MapObjectEditor({
             >
               {deleting ? 'Sletter …' : isPipe ? 'Slett ledning' : 'Slett punkt'}
             </button>
-            <button
-              type="button"
-              onClick={reloadObject}
-              disabled={busy || drawing}
-              className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Last inn på nytt
-            </button>
           </div>
         </section>
-      )}
 
-      {!loading && !record && (
-        <button type="button" onClick={reloadObject} className="text-sm font-medium text-sky-700 underline">
-          Prøv på nytt
-        </button>
-      )}
     </div>
   )
 }

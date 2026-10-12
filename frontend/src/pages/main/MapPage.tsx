@@ -12,7 +12,7 @@ import type { FeatureCollection } from 'geojson'
 import type { GeoJSONSource } from 'maplibre-gl'
 import { defaultFilters, filterFeatures } from '@/pages/main/lib/mapFilters'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import MapObjectEditor from '@/pages/main/Subcomponents/MapObject/MapObjectEditor'
+import MapObjectDetails from '@/pages/main/Subcomponents/MapObject/MapObjectDetails'
 import { featureWithObject } from '@/pages/main/services/mapObjectService'
 import { filterVisibleFeatures } from '@/pages/main/lib/mapOperations'
 import { setOperationsStyle } from '@/pages/main/lib/mapLayers'
@@ -105,7 +105,7 @@ function MapPage({ userId, email }: { userId: string; email?: string }) {
       {selected && mode !== 'create' && (
         <ObjectPanel label="Objektinformasjon" title={`${selected.kind === 'pipes' ? 'Ledning' : 'Punkt'} #${selected.feature.id}`} hidden={Boolean(drawingTools.drawing)} onClose={closeEditor}>
           <CandidateSelector selected={selected} candidates={candidates} onSelect={next => { selectObject(next, candidates) }} />
-          <MapObjectEditor key={`${selected.kind}:${selected.feature.id}`} selection={selected} onSaved={handleSaved} onDeleted={handleDeleted} onEditingState={updateEditingState} onStartDrawing={drawingTools.start} drawing={Boolean(drawingTools.drawing)} onResetGeometry={resetDrawing} />
+          <MapObjectDetails key={`${selected.kind}:${selected.feature.id}`} selection={selected} onSaved={handleSaved} onDeleted={handleDeleted} onEditingState={updateEditingState} onStartDrawing={drawingTools.start} drawing={Boolean(drawingTools.drawing)} onResetGeometry={resetDrawing} />
         </ObjectPanel>
       )}
       <DrawingToolbar tools={drawingTools} />
