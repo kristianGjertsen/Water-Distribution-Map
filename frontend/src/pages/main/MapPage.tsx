@@ -22,7 +22,7 @@ import MapObjectCreator from '@/pages/main/Subcomponents/MapObject/MapObjectCrea
 import type { ObjectKind, ObjectSelection, WaterObject } from '@/pages/main/types/waterObjects'
 
 
-function MapPage({ userId, email }: { userId: string; email?: string }) {
+function MapPage({ userId }: { userId: string }) {
   const { container, mapRef, mapInstance, data, setData, error } = useWaterMap()
   const snapDataRef = useRef<{ pipes: FeatureCollection; points: FeatureCollection } | null>(null)
   const drawingTools = useMapDrawing(mapInstance, snapDataRef)
@@ -109,7 +109,7 @@ function MapPage({ userId, email }: { userId: string; email?: string }) {
         </ObjectPanel>
       )}
       <DrawingToolbar tools={drawingTools} />
-      <AccountPanel userId={userId} email={email} />
+      <AccountPanel userId={userId} />
       {error && (
         <p role="alert" className="absolute bottom-32 left-4 right-16 rounded bg-white p-3 text-sm text-red-700 shadow">
           {error}

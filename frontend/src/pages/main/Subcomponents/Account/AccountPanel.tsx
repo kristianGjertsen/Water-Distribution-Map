@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import UserPermission from './UserPermission'
+import { useMapPermission } from '@/pages/main/hooks/useMapPermission'
 import { authErrorMessage, signOut } from '@/shared/auth/authService'
 
-type Props = { userId: string; email?: string }
+type Props = { userId: string }
 
-export default function AccountPanel({ userId, email }: Props) {
+export default function AccountPanel({ userId }: Props) {
+  const permission = useMapPermission(userId)
   const [signingOut, setSigningOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,8 +25,7 @@ export default function AccountPanel({ userId, email }: Props) {
   return (
       <div className="absolute bottom-12 left-4 max-w-[calc(100%-5rem)] rounded-lg bg-white p-3 text-sm shadow">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="break-all text-slate-700">{email}</span>
-          <UserPermission key={userId} userId={userId} />
+          <UserPermission permission={permission} />
           <button type="button" disabled={signingOut} onClick={handleSignOut} className="font-medium text-sky-700 underline disabled:opacity-50">
             {signingOut ? 'Logger ut …' : 'Logg ut'}
           </button>

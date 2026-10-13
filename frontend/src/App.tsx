@@ -8,7 +8,7 @@ function App() {
     return <p role="status" className="flex min-h-dvh items-center justify-center text-slate-600">Laster …</p>
   }
   if (!session) return <AuthPage />
-  return <MapPage key={session.user.id} userId={session.user.id} email={session.user.email} />
+  return <MapPage key={session.user.id} userId={session.user.id} />
 }
 
 export default App
