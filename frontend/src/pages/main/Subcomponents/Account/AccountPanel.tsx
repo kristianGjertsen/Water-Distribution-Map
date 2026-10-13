@@ -25,7 +25,6 @@ export default function AccountPanel({ userId }: Props) {
   return (
       <div className="absolute bottom-12 left-4 max-w-[calc(100%-5rem)] rounded-lg bg-white p-3 text-sm shadow">
         <div className="flex flex-wrap items-center gap-3">
-          <UserPermission permission={permission} />
           <button type="button" disabled={signingOut} onClick={handleSignOut} className="font-medium text-sky-700 underline disabled:opacity-50">
             {signingOut ? 'Logger ut …' : 'Logg ut'}
           </button>
