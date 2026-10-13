@@ -51,3 +51,6 @@ backup*/
 # Local import tools and source archives
 /import_water_network.py
 /vannnett_geojson_eksempel.zip
+
+#
+LLM_*
