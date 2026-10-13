@@ -1,12 +1,9 @@
 import { useState } from 'react'
-import UserPermission from './UserPermission'
-import { useMapPermission } from '@/pages/main/hooks/useMapPermission'
 import { authErrorMessage, signOut } from '@/shared/auth/authService'
 
 type Props = { userId: string }
 
-export default function AccountPanel({ userId }: Props) {
-  const permission = useMapPermission(userId)
+export default function AccountPanel(_props: Props) {
   const [signingOut, setSigningOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
